@@ -1,0 +1,53 @@
+{
+  "name": "molrender",
+  "version": "0.1.0",
+  "description": "Create macromolecular images.",
+  "homepage": "https://github.com/molstar/molrender#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/molstar/molrender.git"
+  },
+  "bugs": {
+    "url": "https://github.com/molstar/molrender/issues"
+  },
+  "scripts": {
+    "test": "npm run lint",
+    "lint": "tslint src/**/*.ts",
+    "build": "npm run build-tsc && npm run build-webpack",
+    "build-tsc": "tsc",
+    "build-webpack": "webpack --mode production",
+    "watch": "concurrently --kill-others \"npm:watch-tsc\" \"npm:watch-webpack\"",
+    "watch-tsc": "tsc -watch",
+    "watch-webpack": "webpack -w --mode development --display minimal",
+    "preversion": "npm run test",
+    "postversion": "git push && git push --tags",
+    "prepublishOnly": "npm run test && npm run build"
+  },
+  "bin": {
+    "molrender": "build/bin/molrender.js"
+  },
+  "files": [
+    "build/bin/molrender.js"
+  ],
+  "author": "Mol* Contributors",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/argparse": "^1.0.36",
+    "@types/gl": "^4.1.0",
+    "@types/node": "^12.0.4",
+    "@types/node-fetch": "^2.3.4",
+    "@types/pngjs": "^3.3.2",
+    "concurrently": "^4.1.0",
+    "molstar": "git+https://github.com/molstar/molstar-proto.git#9dd3a4665b6e5b065616a7338931b1483a717e06",
+    "node-fetch": "^2.6.0",
+    "tslint": "^5.17.0",
+    "typescript": "3.5.1",
+    "webpack": "^4.32.2",
+    "webpack-cli": "^3.3.2"
+  },
+  "dependencies": {
+    "argparse": "^1.0.10",
+    "gl": "^4.3.3",
+    "pngjs": "^3.4.0"
+  }
+}

@@ -102,12 +102,14 @@ async function run(id: string, out: string) {
         process.exit(1)
     }
 
-    const pixelData = canvas3d.getPixelData('color')
-    const png = new PNG({ width, height })
-    png.data = Buffer.from(pixelData.array)
-    png.pack().pipe(fs.createWriteStream(out)).on('finish', () => {
-        process.exit()
-    })
+    setTimeout(() => {
+        const pixelData = canvas3d.getPixelData('color')
+        const png = new PNG({ width, height })
+        png.data = Buffer.from(pixelData.array)
+        png.pack().pipe(fs.createWriteStream(out)).on('finish', () => {
+            process.exit()
+        })
+    }, 500)
 }
 
 //

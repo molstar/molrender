@@ -38,7 +38,7 @@
     "@types/node-fetch": "^2.3.4",
     "@types/pngjs": "^3.3.2",
     "concurrently": "^4.1.0",
-    "molstar": "git+https://github.com/molstar/molstar-proto.git#9dd3a4665b6e5b065616a7338931b1483a717e06",
+    "molstar": "^0.2.2",
     "node-fetch": "^2.6.0",
     "tslint": "^5.17.0",
     "typescript": "3.5.1",

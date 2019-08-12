@@ -46,8 +46,11 @@
     "webpack-cli": "^3.3.2"
   },
   "dependencies": {
+    "@types/pixelmatch": "^5.0.0",
     "argparse": "^1.0.10",
     "gl": "^4.3.3",
-    "pngjs": "^3.4.0"
+    "pixelmatch": "^5.0.2",
+    "pngjs": "^3.4.0",
+    "util.promisify": "^1.0.0"
   }
 }

@@ -1,5 +1,7 @@
 build/
 
+*.png
+
 node_modules/
 debug.log
 npm-debug.log

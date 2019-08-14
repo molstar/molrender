@@ -1,12 +1,10 @@
 /**
  * Copyright (c) 2019 mol* contributors, licensed under MIT, See LICENSE file for more info.
  *
- * @author Alexander Rose <alexander.rose@weirdbyte.de>
  * @author Jesse Liang <jesse.liang@rcsb.org>
  */
 
 import * as argparse from 'argparse'
-import fs = require('fs')
 import { CIF, CifFrame } from 'molstar/lib/mol-io/reader/cif'
 import { trajectoryFromMmCIF } from 'molstar/lib/mol-model-formats/structure/mmcif';
 import { ajaxGet } from 'molstar/lib/mol-util/data-source';

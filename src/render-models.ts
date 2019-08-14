@@ -14,9 +14,9 @@ import InputObserver from 'molstar/lib/mol-util/input/input-observer';
 import { ColorTheme } from 'molstar/lib/mol-theme/color';
 import { SizeTheme } from 'molstar/lib/mol-theme/size';
 import { CartoonRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/cartoon';
-import { CIF, CifFrame } from 'molstar/lib/mol-io/reader/cif'
+import { CIF, CifFrame, CifBlock } from 'molstar/lib/mol-io/reader/cif'
 import { trajectoryFromMmCIF } from 'molstar/lib/mol-model-formats/structure/mmcif';
-import { Model, Structure, StructureSymmetry } from 'molstar/lib/mol-model/structure';
+import { Model, Structure } from 'molstar/lib/mol-model/structure';
 import { ColorNames } from 'molstar/lib/mol-util/color/tables';
 import { ajaxGet } from 'molstar/lib/mol-util/data-source';
 
@@ -86,9 +86,8 @@ async function getStructure(model: Model) {
     return Structure.ofModel(model);
 }
 
-async function runTests(id: string, modIndex: number, asmIndex: number) {
-    console.log('Rendering + ' + id + ' model ' + modIndex + ', assembly ' + asmIndex + '...')
-
+async function runTests(id: string, modIndex: number) {
+    console.log('Rendering + ' + id + ' model ' + modIndex + '...')
     try {
 /*
             // create an image for each model (example PDB ID: 1NMR or 1GRM)
@@ -99,13 +98,11 @@ async function runTests(id: string, modIndex: number, asmIndex: number) {
 
 
     */
-        const cif = await downloadFromPdb(id);
+
+        const cif = await downloadFromPdb(id)
         const models = await getModels(cif as CifFrame)
 
         let structure = await getStructure(models[modIndex])
-
-        const task = StructureSymmetry.buildAssembly(structure, models[modIndex].symmetry.assemblies[asmIndex].id)
-        structure = await task.run()
 
         const cartoonRepr = getCartoonRepr()
 
@@ -123,12 +120,13 @@ async function runTests(id: string, modIndex: number, asmIndex: number) {
             const generatedPng = new PNG({ width, height })
             generatedPng.data = Buffer.from(pixelData.array)
 
-            let imagePathName = IMAGE_PATH + id + '-m' + modIndex + 'a' + asmIndex + '.png'
+            let imagePathName = IMAGE_PATH + id + '-m' + modIndex + '.png'
             generatedPng.pack().pipe(fs.createWriteStream(imagePathName)).on('finish', () => {
                 console.log('Finished.')
                 process.exit()
             })
         }, 500)
+
 
     } catch (e) {
         console.error(e)
@@ -148,16 +146,12 @@ parser.addArgument([ 'id' ], {
 parser.addArgument([ 'index' ], {
     help: 'Model index'
 });
-parser.addArgument([ 'asm' ], {
-    help: 'Assembly index'
-})
 
 
 interface Args {
     id: string
     index: number
-    asm: number
 }
 const args: Args = parser.parseArgs();
 
-runTests(args.id, args.index, args.asm)
+runTests(args.id, args.index)

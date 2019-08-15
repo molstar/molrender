@@ -5,7 +5,6 @@
  * @author Jesse Liang <jesse.liang@rcsb.org>
  */
 
-import * as argparse from 'argparse'
 import createContext = require('gl')
 import fs = require('fs')
 import { PNG, PNGOptions } from 'pngjs'
@@ -24,13 +23,17 @@ import { ColorNames } from 'molstar/lib/mol-util/color/tables';
 import { ajaxGet } from 'molstar/lib/mol-util/data-source';
 import { readCifFile } from 'molstar/lib/apps/structure-info/model';
 import { RepresentationProvider, Representation } from 'molstar/lib/mol-repr/representation';
-import { async } from 'rxjs/internal/scheduler/async';
 
 export enum Rep {
     Cartoon = 0,
     BallAndStick = 1,
     Molecular = 2,
     Gaussian = 3
+}
+
+function getID(inPath: string) {
+    const arr = inPath.split('/')
+    return arr[arr.length - 1].split('.')[0]
 }
 
 async function cifReader(path: string) {
@@ -55,15 +58,23 @@ async function cifParser(path: string) {
     return parsed.result.blocks[0];
 }
 
-// async function downloadCif(url: string, isBinary: boolean) {
-//     const data = await ajaxGet({ url, type: isBinary ? 'binary' : 'string' }).run();
-//     return parseCif(data);
-// }
+async function parseCif(data: string|Uint8Array) {
+    const comp = CIF.parse(data);
+    const parsed = await comp.run();
+    if (parsed.isError) throw parsed;
+    return parsed.result;
+}
 
-// async function downloadFromPdb(pdb: string) {
-//     const parsed = await downloadCif(`https://files.rcsb.org/download/${pdb}.cif`, false);
-//     return parsed.blocks[0];
-// }
+async function downloadCif(url: string, isBinary: boolean) {
+    const data = await ajaxGet({ url, type: isBinary ? 'binary' : 'string' }).run();
+    return parseCif(data);
+}
+
+async function downloadFromPdb(pdb: string) {
+    const parsed = await downloadCif(`https://files.rcsb.org/download/${pdb}.cif`, false);
+    return parsed.blocks[0];
+}
+
 
 export class RenderAll {
 
@@ -117,7 +128,7 @@ export class RenderAll {
             colorThemeRegistry: ColorTheme.createRegistry(),
             sizeThemeRegistry: SizeTheme.createRegistry()
         }
-        const id = this.getID(inPath)
+        const id = getID(inPath)
 
         try {
 
@@ -196,7 +207,7 @@ export class RenderAll {
             colorThemeRegistry: ColorTheme.createRegistry(),
             sizeThemeRegistry: SizeTheme.createRegistry()
         }
-        const id = this.getID(inPath)
+        const id = getID(inPath)
         try {
 
             if (!fs.existsSync(outPath + '/' + id)) {
@@ -264,18 +275,15 @@ export class RenderAll {
         }
 
     }
-
-    getID(inPath: string) {
-        const arr = inPath.split('/')
-        return arr[arr.length - 1].split('.')[0]
-    }
 }
 
 export async function getArrLengths(bool: boolean, index: number, inPath: string) {
-
     try {
-        const cif = await cifParser(inPath)
-        const models = await trajectoryFromMmCIF(cif as CifFrame).run();
+        // const cif = await cifParser(inPath)
+        // const models = await trajectoryFromMmCIF(cif as CifFrame).run();
+        const id = getID(inPath)
+        const cif = await downloadFromPdb(id)
+        const models = await trajectoryFromMmCIF(cif as CifFrame).run()
         if (bool) {
             console.log(models.length)
         } else {

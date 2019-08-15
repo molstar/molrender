@@ -37,15 +37,17 @@ function getID(inPath: string) {
 }
 
 async function cifReader(path: string) {
-    let result = new Buffer('')
+    let result = Buffer.alloc(0, undefined, 'utf-8')
     try {
         fs.readFile(path, await async function read(err, data) {
             if (err) throw err
             result = data
+            console.log(data)
         })
     } catch (e) {
+        console.log('huh')
+
         throw e
-        console.log(e)
     }
     return result
 }
@@ -279,10 +281,9 @@ export class RenderAll {
 
 export async function getArrLengths(bool: boolean, index: number, inPath: string) {
     try {
-        // const cif = await cifParser(inPath)
-        // const models = await trajectoryFromMmCIF(cif as CifFrame).run();
+        const cif = await cifParser(inPath)
         const id = getID(inPath)
-        const cif = await downloadFromPdb(id)
+        // const cif = await downloadFromPdb(id)
         const models = await trajectoryFromMmCIF(cif as CifFrame).run()
         if (bool) {
             console.log(models.length)
@@ -295,8 +296,8 @@ export async function getArrLengths(bool: boolean, index: number, inPath: string
     }
 }
 
-getArrLengths(true, 0, './examples/1crn.cif')
+// getArrLengths(true, 0, './examples/1crn.cif')
 
-const renderer = new RenderAll(420, 420)
-renderer.renderMod(0, './examples/1crn.cif', './images/', 0)
-renderer.renderAsm(0, 0, './examples/1crn.cif', './images/', 0)
+// const renderer = new RenderAll(420, 420)
+// renderer.renderMod(0, './examples/1crn.cif', './images/', 0)
+// renderer.renderAsm(0, 0, './examples/1crn.cif', './images/', 0)

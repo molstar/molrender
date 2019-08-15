@@ -5,7 +5,6 @@ arr=($(echo $string | tr " " "\n"))
 x=0
 while [ $x -lt ${arr[0]} ]
 do
-	echo "$x ${arr[0]}"
 	node src/render-models.js $1 $x
 	string=$(node src/get-cif.js $1 $x)
 	arr1=($(echo $string | tr " " "\n"))
@@ -13,7 +12,6 @@ do
 	y=0
 	while [ $y -lt $asmNum ]
 	do
-	echo "$y $asmNum"
 		node src/render-assemblies.js $1 $x $y
 		y=$((y+1))
 	done

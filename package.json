@@ -32,7 +32,6 @@
   "author": "Mol* Contributors",
   "license": "MIT",
   "devDependencies": {
-    "@types/argparse": "^1.0.36",
     "@types/gl": "^4.1.0",
     "@types/node": "^12.0.4",
     "@types/node-fetch": "^2.3.4",
@@ -46,6 +45,7 @@
     "webpack-cli": "^3.3.2"
   },
   "dependencies": {
+    "@types/argparse": "^1.0.36",
     "@types/pixelmatch": "^5.0.0",
     "argparse": "^1.0.10",
     "gl": "^4.3.3",

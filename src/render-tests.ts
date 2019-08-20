@@ -5,7 +5,7 @@
  * @author Jesse Liang <jesse.liang@rcsb.org>
  */
 
-//import * as argparse from 'argparse'
+import * as argparse from 'argparse'
 import pixelmatch = require('pixelmatch')
 import createContext = require('gl')
 import fs = require('fs')
@@ -78,22 +78,22 @@ function runTests() {
             const cif = await readCifFile('./examples/' + id + '.cif') // Similar to render-structure, but accesses local cif
             const models = await getModels(cif as CifFrame)
             const structure = await getStructure(models[0])
-    
+
             const cartoonRepr = getCartoonRepr()
-        
+
             cartoonRepr.setTheme({
                 color: reprCtx.colorThemeRegistry.create('sequence-id', { structure }),
                 size: reprCtx.sizeThemeRegistry.create('uniform', { structure })
             })
             await cartoonRepr.createOrUpdate({ ...CartoonRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
-        
+
             canvas3d.add(cartoonRepr)
             canvas3d.resetCamera()
         } catch (e) {
             console.error(e)
             process.exit(1)
         }
-    
+
         setTimeout(() => {
             process.stdout.write('Testing render of ' + id + ': ');
             const pixelData = canvas3d.getPixelData('color')
@@ -109,13 +109,13 @@ function runTests() {
             } catch (e) {
                 console.log('\x1b[31m%s\x1b[0m', 'FAILED');
             }
-            
+
             if (numDiffPx > 0) {
                 console.log('\x1b[31m%s\x1b[0m', 'FAILED');
             } else {
                 console.log('\x1b[32m%s\x1b[0m', 'PASSED');
             }
-    
+
             generatedPng.pack().pipe(fs.createWriteStream(IMAGE_PATH + 'output' + id + '.png')).on('finish', () => {
                 process.exit()
             })
@@ -123,7 +123,6 @@ function runTests() {
     })
 }
 
-// TODO: implement argparse
 // const parser = new argparse.ArgumentParser({
 //     addHelp: true,
 //     description: 'render image as PNG (work in progress)'

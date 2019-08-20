@@ -19,9 +19,12 @@ import { BallAndStickRepresentationProvider } from 'molstar/lib/mol-repr/structu
 import { GaussianSurfaceRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/gaussian-surface';
 import { CIF, CifFrame } from 'molstar/lib/mol-io/reader/cif'
 import { trajectoryFromMmCIF } from 'molstar/lib/mol-model-formats/structure/mmcif';
-import { Model, Structure, StructureSymmetry } from 'molstar/lib/mol-model/structure';
+import { Model, Structure, StructureSymmetry, QueryContext, StructureSelection } from 'molstar/lib/mol-model/structure';
 import { ColorNames } from 'molstar/lib/mol-util/color/tables';
 import { RepresentationProvider, Representation } from 'molstar/lib/mol-repr/representation';
+import { compile } from 'molstar/lib/mol-script/runtime/query/compiler';
+import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
+
 
 export enum Rep {
     Cartoon = 0,
@@ -120,19 +123,24 @@ export class RenderAll {
             sizeThemeRegistry: SizeTheme.createRegistry()
         }
         const id = getID(inPath)
+        const folderName = `${id[1]}${id[2]}`
 
         try {
-            if (!fs.existsSync(outPath + '/' + id)) {
-                fs.mkdirSync(outPath + '/' + id)
+            if (!fs.existsSync(outPath + '/' + folderName)) {
+                fs.mkdirSync(outPath + '/' + folderName)
+            }
+
+            if (!fs.existsSync(`${outPath}/${folderName}/${id}`)) {
+                fs.mkdirSync(`${outPath}/${folderName}/${id}`)
             }
 
             const cif = await readCifFile(inPath)
             const models = await this.getModels(cif as CifFrame)
 
-            console.log('Rendering + ' + id + ' model ' + modIndex + ', assembly ' + asmIndex + '...')
-
-
             let structure = await this.getStructure(models[modIndex])
+
+            const asmName = models[modIndex].symmetry.assemblies[asmIndex].id
+            console.log(`Rendering ${id} model ${models[modIndex].modelNum} assembly ${asmName}...`)
 
             const task = StructureSymmetry.buildAssembly(structure, models[modIndex].symmetry.assemblies[asmIndex].id)
             structure = await task.run()
@@ -170,17 +178,17 @@ export class RenderAll {
 
             this.canvas3d.add(repr)
             this.canvas3d.resetCamera()
-            await setTimeout(() => {
+            setTimeout(() => {
                 const pixelData = this.canvas3d.getPixelData('color')
-                const options: PNGOptions = {width: this.width, height: this.width}
+                const options: PNGOptions = {width: this.width, height: this.height}
                 const generatedPng = new PNG(options)
                 generatedPng.data = Buffer.from(pixelData.array)
-                let imagePathName = outPath + '/' + id + '/'  + id + '-m' + modIndex + 'a' + asmIndex + '.png'
+                let imagePathName = `${outPath}/${folderName}/${id}/${id}_model-${models[modIndex].modelNum}-assembly-${asmName}.png`
                 generatedPng.pack().pipe(fs.createWriteStream(imagePathName)).on('finish', () => {
                     console.log('Finished.')
                     process.exit()
                 })
-            }, 500)
+            }, 50)
 
         } catch (e) {
             console.error(e)
@@ -196,18 +204,23 @@ export class RenderAll {
             sizeThemeRegistry: SizeTheme.createRegistry()
         }
         const id = getID(inPath)
+        const folderName = `${id[1]}${id[2]}`
+
         try {
-            if (!fs.existsSync(outPath + '/' + id)) {
-                fs.mkdirSync(outPath + '/' + id)
+            if (!fs.existsSync(`${outPath}/${folderName}`)) {
+                fs.mkdirSync(`${outPath}/${folderName}`)
             }
 
+            if (!fs.existsSync(`${outPath}/${folderName}/${id}`)) {
+                fs.mkdirSync(`${outPath}/${folderName}/${id}`)
+            }
 
             const cif = await readCifFile(inPath)
             const models = await this.getModels(cif as CifFrame)
 
-            console.log('Rendering + ' + id + ' model ' + modIndex + '...')
-
             let structure = await this.getStructure(models[modIndex])
+
+            console.log(`Rendering ${id} model ${models[modIndex].modelNum}...`)
 
             let repr: Representation<any, any, any>
             let provider: RepresentationProvider<any, any, any>
@@ -243,18 +256,18 @@ export class RenderAll {
             this.canvas3d.add(repr)
             this.canvas3d.resetCamera()
 
-            await setTimeout(() => {
+            setTimeout(() => {
                 const pixelData = this.canvas3d.getPixelData('color')
-                const options: PNGOptions = {width: this.width, height: this.width}
+                const options: PNGOptions = {width: this.width, height: this.height}
                 const generatedPng = new PNG(options)
                 generatedPng.data = Buffer.from(pixelData.array)
 
-                let imagePathName = outPath + '/' + id + '/' + id + '-m' + modIndex + '.png'
+                let imagePathName = `${outPath}/${folderName}/${id}/${id}_model-${models[modIndex].modelNum}.png`
                 generatedPng.pack().pipe(fs.createWriteStream(imagePathName)).on('finish', () => {
                     console.log('Finished.')
                     process.exit()
                 })
-            }, 500)
+            }, 50)
 
 
         } catch (e) {
@@ -263,6 +276,94 @@ export class RenderAll {
         }
 
     }
+
+    async renderChain(inPath: string, outPath: string, rep: Rep) {
+        const reprCtx = {
+            wegbl: this.canvas3d.webgl,
+            colorThemeRegistry: ColorTheme.createRegistry(),
+            sizeThemeRegistry: SizeTheme.createRegistry()
+        }
+        const id = getID(inPath)
+        const folderName = `${id[1]}${id[2]}`
+
+        // console.log(`Rendering ${id} model ${modIndex}...`)
+
+        try {
+            if (!fs.existsSync(`${outPath}/${folderName}`)) {
+                fs.mkdirSync(`${outPath}/${folderName}`)
+            }
+
+            if (!fs.existsSync(`${outPath}/${folderName}/${id}`)) {
+                fs.mkdirSync(`${outPath}/${folderName}/${id}`)
+            }
+
+            const cif = await readCifFile(inPath)
+            const models = await this.getModels(cif as CifFrame)
+
+            let wholeStructure = await this.getStructure(models[0])
+
+            const expression = MS.struct.generator.atomGroups({
+                'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), 'A']),
+            })
+            const query = compile<StructureSelection>(expression)
+            const selection = query(new QueryContext(wholeStructure))
+            const structure = StructureSelection.unionStructure(selection)
+
+            let repr: Representation<any, any, any>
+            let provider: RepresentationProvider<any, any, any>
+
+            switch (rep) {
+                case Rep.Cartoon:
+                    repr = CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
+                    provider = CartoonRepresentationProvider
+                    break;
+                case Rep.BallAndStick:
+                    repr = BallAndStickRepresentationProvider.factory(reprCtx, BallAndStickRepresentationProvider.getParams)
+                    provider = BallAndStickRepresentationProvider
+                    break;
+                case Rep.Gaussian:
+                    repr = GaussianSurfaceRepresentationProvider.factory(reprCtx, GaussianSurfaceRepresentationProvider.getParams)
+                    provider = GaussianSurfaceRepresentationProvider
+                    break;
+                case Rep.Molecular:
+                    repr = MolecularSurfaceRepresentationProvider.factory(reprCtx, MolecularSurfaceRepresentationProvider.getParams)
+                    provider = GaussianSurfaceRepresentationProvider
+                    break;
+                default:
+                    repr = CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
+                    provider = CartoonRepresentationProvider
+            }
+
+            repr.setTheme({
+                color: reprCtx.colorThemeRegistry.create('sequence-id', { structure }),
+                size: reprCtx.sizeThemeRegistry.create('uniform', { structure })
+            })
+            await repr.createOrUpdate({ ...provider.defaultValues, quality: 'auto' }, structure).run()
+
+            this.canvas3d.add(repr)
+            this.canvas3d.resetCamera()
+
+            setTimeout(() => {
+                const pixelData = this.canvas3d.getPixelData('color')
+                const options: PNGOptions = {width: this.width, height: this.height}
+                const generatedPng = new PNG(options)
+                generatedPng.data = Buffer.from(pixelData.array)
+
+                let imagePathName = `${outPath}/${folderName}/${id}/${id}_model-${models[0].modelNum}.png`
+                generatedPng.pack().pipe(fs.createWriteStream(imagePathName)).on('finish', () => {
+                    console.log('Finished.')
+                    process.exit()
+                })
+            }, 50)
+
+
+        } catch (e) {
+            console.error(e)
+            process.exit(1)
+        }
+
+    }
+
 }
 
 export async function getArrLengths(index: number, inPath: string) {

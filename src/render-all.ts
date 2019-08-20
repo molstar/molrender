@@ -5,6 +5,7 @@
  * @author Jesse Liang <jesse.liang@rcsb.org>
  */
 
+import * as util from 'util'
 import createContext = require('gl')
 import fs = require('fs')
 import { PNG, PNGOptions } from 'pngjs'
@@ -16,12 +17,11 @@ import { CartoonRepresentationProvider } from 'molstar/lib/mol-repr/structure/re
 import { MolecularSurfaceRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/molecular-surface';
 import { BallAndStickRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/ball-and-stick';
 import { GaussianSurfaceRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/gaussian-surface';
-import { CIF, CifFrame, CifBlock, CifCategory } from 'molstar/lib/mol-io/reader/cif'
+import { CIF, CifFrame, /* CifBlock, CifCategory */ } from 'molstar/lib/mol-io/reader/cif'
 import { trajectoryFromMmCIF } from 'molstar/lib/mol-model-formats/structure/mmcif';
 import { Model, Structure, StructureSymmetry } from 'molstar/lib/mol-model/structure';
 import { ColorNames } from 'molstar/lib/mol-util/color/tables';
-import { ajaxGet } from 'molstar/lib/mol-util/data-source';
-import { readCifFile } from 'molstar/lib/apps/structure-info/model';
+// import { ajaxGet } from 'molstar/lib/mol-util/data-source';
 import { RepresentationProvider, Representation } from 'molstar/lib/mol-repr/representation';
 
 export enum Rep {
@@ -36,28 +36,29 @@ function getID(inPath: string) {
     return arr[arr.length - 1].split('.')[0]
 }
 
-async function cifReader(path: string) {
-    let result = Buffer.alloc(0, undefined, 'utf-8')
-    try {
-        fs.readFile(path, await async function read(err, data) {
-            if (err) throw err
-            result = data
-            console.log(data)
-        })
-    } catch (e) {
-        console.log('huh')
+const readFileAsync = util.promisify(fs.readFile);
 
-        throw e
+async function readFile(path: string) {
+    if (path.match(/\.bcif$/)) {
+        const input = await readFileAsync(path)
+        const data = new Uint8Array(input.byteLength);
+        for (let i = 0; i < input.byteLength; i++) data[i] = input[i];
+        return data;
+    } else {
+        return readFileAsync(path, 'utf8');
     }
-    return result
+
+
 }
 
-async function cifParser(path: string) {
-    const data = await cifReader(path)
-    const comp = CIF.parse(data);
-    const parsed = await comp.run();
-    if (parsed.isError) throw parsed;
-    return parsed.result.blocks[0];
+export async function openCif(path: string) {
+    const data = await readFile(path);
+    return parseCif(data);
+}
+
+export async function readCifFile(path: string) {
+    const parsed = await openCif(path);
+    return parsed.blocks[0];
 }
 
 async function parseCif(data: string|Uint8Array) {
@@ -67,15 +68,16 @@ async function parseCif(data: string|Uint8Array) {
     return parsed.result;
 }
 
-async function downloadCif(url: string, isBinary: boolean) {
-    const data = await ajaxGet({ url, type: isBinary ? 'binary' : 'string' }).run();
-    return parseCif(data);
-}
+// async function downloadCif(url: string, isBinary: boolean) {
+//     const data = await ajaxGet({ url, type: isBinary ? 'binary' : 'string' }).run();
+//     // console.log(data)
+//     return parseCif(data);
+// }
 
-async function downloadFromPdb(pdb: string) {
-    const parsed = await downloadCif(`https://files.rcsb.org/download/${pdb}.cif`, false);
-    return parsed.blocks[0];
-}
+// async function downloadFromPdb(pdb: string) {
+//     const parsed = await downloadCif(`https://files.rcsb.org/download/${pdb}.cif`, false);
+//     return parsed.blocks[0];
+// }
 
 
 export class RenderAll {
@@ -133,10 +135,10 @@ export class RenderAll {
         const id = getID(inPath)
 
         try {
-
             if (!fs.existsSync(outPath + '/' + id)) {
                 fs.mkdirSync(outPath + '/' + id)
             }
+            // const cif = await downloadFromPdb(id)
 
             const cif = await readCifFile(inPath)
             const models = await this.getModels(cif as CifFrame)
@@ -182,13 +184,11 @@ export class RenderAll {
 
             this.canvas3d.add(repr)
             this.canvas3d.resetCamera()
-
             await setTimeout(() => {
                 const pixelData = this.canvas3d.getPixelData('color')
                 const options: PNGOptions = {width: this.width, height: this.width}
                 const generatedPng = new PNG(options)
                 generatedPng.data = Buffer.from(pixelData.array)
-
                 let imagePathName = outPath + '/' + id + '/'  + id + '-m' + modIndex + 'a' + asmIndex + '.png'
                 generatedPng.pack().pipe(fs.createWriteStream(imagePathName)).on('finish', () => {
                     console.log('Finished.')
@@ -211,10 +211,13 @@ export class RenderAll {
         }
         const id = getID(inPath)
         try {
-
             if (!fs.existsSync(outPath + '/' + id)) {
                 fs.mkdirSync(outPath + '/' + id)
             }
+            
+
+            // const cif = await downloadFromPdb(id)
+            // const cif = await cifParser(inPath)
 
             const cif = await readCifFile(inPath)
             const models = await this.getModels(cif as CifFrame)
@@ -279,17 +282,17 @@ export class RenderAll {
     }
 }
 
-export async function getArrLengths(bool: boolean, index: number, inPath: string) {
+export async function getArrLengths(index: number, inPath: string) {
     try {
-        const cif = await cifParser(inPath)
-        const id = getID(inPath)
+        // const id = getID(inPath)
+
         // const cif = await downloadFromPdb(id)
+
+        // const cif = await cifParser(inPath)
+        const cif = await readCifFile(inPath)
         const models = await trajectoryFromMmCIF(cif as CifFrame).run()
-        if (bool) {
-            console.log(models.length)
-        } else {
-            console.log(models[index].symmetry.assemblies.length)
-        }
+        console.log(models.length)
+        console.log(models[index].symmetry.assemblies.length)
     } catch (e) {
         console.log(e)
         process.exit(1)
@@ -301,3 +304,10 @@ export async function getArrLengths(bool: boolean, index: number, inPath: string
 // const renderer = new RenderAll(420, 420)
 // renderer.renderMod(0, './examples/1crn.cif', './images/', 0)
 // renderer.renderAsm(0, 0, './examples/1crn.cif', './images/', 0)
+
+// downloadCif('https://files.rcsb.org/download/1crn.cif', false)
+
+// const renderer = new RenderAll(1000, 1000)
+
+// // cifParser('examples/1crn.cif')
+// renderer.renderMod(0, 'examples/1crn.cif', 'images', 0)

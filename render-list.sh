@@ -1,6 +1,7 @@
 #!/bin/bash
 input="./pdb-list.txt"
+pwd
 while IFS= read -r line
 do
-	./renderID.sh "$line"
+	./render.sh ./examples/$line.cif ./images/
 done < "$input"

@@ -73,6 +73,10 @@ asmParse.addArgument([ 'asmIndex' ], {
 });
 
 const getLenParse = subparsers.addParser('getlen', {addHelp: true})
+getLenParse.addArgument([ 'bool' ], {
+    action: 'store',
+    help: 'true = num of models; false = num of assemblies'
+})
 getLenParse.addArgument([ 'in' ], {
     action: 'store',
     help: 'input path of cif file'
@@ -104,7 +108,7 @@ let renderer: RenderAll
 
 switch (args.render) {
     case 'getlen':
-        getArrLengths(args.modIndex, args.in)
+        getArrLengths(args.bool, args.modIndex, args.in)
         break;
     case 'mod':
         renderer = new RenderAll(width, height)

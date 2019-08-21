@@ -5,7 +5,7 @@
  */
 
 import * as argparse from 'argparse'
-import { RenderAll, getArrLengths } from './render-all'
+import { RenderAll, getArrLengths, getChnNames } from './render-all'
 
 const parser = new argparse.ArgumentParser({
     addHelp: true,
@@ -72,6 +72,32 @@ asmParse.addArgument([ 'asmIndex' ], {
     help: 'assembly index'
 });
 
+const chnParse = subparsers.addParser('chn', {addHelp: true})
+chnParse.addArgument([ '--width' ], {
+    action: 'store',
+    help: 'width of image'
+});
+chnParse.addArgument([ '--height' ], {
+    action: 'store',
+    help: 'height of image'
+});
+chnParse.addArgument([ '--repr' ], {
+    action: 'store',
+    help: 'cartoon, ballandstick, molecular, gaussian (0, 1, 2, 3)'
+});
+chnParse.addArgument([ 'in' ], {
+    action: 'store',
+    help: 'input path of cif file'
+});
+chnParse.addArgument([ 'out' ], {
+    action: 'store',
+    help: 'output path of png files (not including file name)'
+});
+chnParse.addArgument([ 'chnName' ], {
+    action: 'store',
+    help: 'chain name'
+});
+
 const getLenParse = subparsers.addParser('getlen', {addHelp: true})
 getLenParse.addArgument([ 'in' ], {
     action: 'store',
@@ -80,6 +106,12 @@ getLenParse.addArgument([ 'in' ], {
 getLenParse.addArgument([ 'modIndex' ], {
     action: 'store',
     help: 'model index'
+})
+
+const getNamesParse = subparsers.addParser('getNames', {addHelp: true})
+getNamesParse.addArgument([ 'in' ], {
+    action: 'store',
+    help: 'input path of cif file'
 })
 
 const args = parser.parseArgs();
@@ -104,6 +136,13 @@ let renderer: RenderAll
 switch (args.render) {
     case 'getlen':
         getArrLengths(args.modIndex, args.in)
+        break;
+    case 'getNames':
+        getChnNames(args.in)
+        break;
+    case 'chn':
+        renderer = new RenderAll(width, height)
+        renderer.renderChn(args.chnName, args.in, args.out, 1)
         break;
     case 'mod':
         renderer = new RenderAll(width, height)

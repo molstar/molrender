@@ -17,6 +17,7 @@ import { CartoonRepresentationProvider } from 'molstar/lib/mol-repr/structure/re
 import { MolecularSurfaceRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/molecular-surface';
 import { BallAndStickRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/ball-and-stick';
 import { GaussianSurfaceRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/gaussian-surface';
+// import { CarbohydrateRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/carbohydrate'
 import { CIF, CifFrame } from 'molstar/lib/mol-io/reader/cif'
 import { trajectoryFromMmCIF } from 'molstar/lib/mol-model-formats/structure/mmcif';
 import { Model, Structure, StructureSymmetry, QueryContext, StructureSelection } from 'molstar/lib/mol-model/structure';
@@ -277,7 +278,7 @@ export class RenderAll {
 
     }
 
-    async renderChain(inPath: string, outPath: string, rep: Rep) {
+    async renderChn(chnName: string, inPath: string, outPath: string, rep: Rep) {
         const reprCtx = {
             wegbl: this.canvas3d.webgl,
             colorThemeRegistry: ColorTheme.createRegistry(),
@@ -285,8 +286,6 @@ export class RenderAll {
         }
         const id = getID(inPath)
         const folderName = `${id[1]}${id[2]}`
-
-        // console.log(`Rendering ${id} model ${modIndex}...`)
 
         try {
             if (!fs.existsSync(`${outPath}/${folderName}`)) {
@@ -302,8 +301,10 @@ export class RenderAll {
 
             let wholeStructure = await this.getStructure(models[0])
 
+            console.log(`Rendering ${id} chain ${chnName}...`)
+
             const expression = MS.struct.generator.atomGroups({
-                'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), 'A']),
+                'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), chnName])
             })
             const query = compile<StructureSelection>(expression)
             const selection = query(new QueryContext(wholeStructure))
@@ -349,12 +350,102 @@ export class RenderAll {
                 const generatedPng = new PNG(options)
                 generatedPng.data = Buffer.from(pixelData.array)
 
-                let imagePathName = `${outPath}/${folderName}/${id}/${id}_model-${models[0].modelNum}.png`
+                let imagePathName = `${outPath}/${folderName}/${id}/${id}_chain-${chnName}.png`
                 generatedPng.pack().pipe(fs.createWriteStream(imagePathName)).on('finish', () => {
                     console.log('Finished.')
                     process.exit()
                 })
             }, 50)
+
+
+        } catch (e) {
+            console.error(e)
+            process.exit(1)
+        }
+
+    }
+
+    async renderComb(inPath: string, outPath: string) {
+        const reprCtx = {
+            wegbl: this.canvas3d.webgl,
+            colorThemeRegistry: ColorTheme.createRegistry(),
+            sizeThemeRegistry: SizeTheme.createRegistry()
+        }
+        const id = getID(inPath)
+        const folderName = `${id[1]}${id[2]}`
+
+        try {
+            if (!fs.existsSync(`${outPath}/${folderName}`)) {
+                fs.mkdirSync(`${outPath}/${folderName}`)
+            }
+
+            if (!fs.existsSync(`${outPath}/${folderName}/${id}`)) {
+                fs.mkdirSync(`${outPath}/${folderName}/${id}`)
+            }
+
+            const cif = await readCifFile(inPath)
+            const models = await this.getModels(cif as CifFrame)
+
+            let wholeStructure = await this.getStructure(models[0])
+
+            let repr: Representation<any, any, any>
+            let provider: RepresentationProvider<any, any, any>
+
+            console.log(`Rendering ${id} assembly IDK...`)
+
+            repr = CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
+            provider = CartoonRepresentationProvider
+
+
+            repr.setTheme({
+                color: reprCtx.colorThemeRegistry.create('sequence-id', { wholeStructure }),
+                size: reprCtx.sizeThemeRegistry.create('uniform', { wholeStructure })
+            })
+            await repr.createOrUpdate({ ...provider.defaultValues, quality: 'auto' }, wholeStructure).run()
+
+            this.canvas3d.add(repr)
+
+            const repr2 = BallAndStickRepresentationProvider.factory(reprCtx, BallAndStickRepresentationProvider.getParams)
+            const provider2 = BallAndStickRepresentationProvider
+            const { entities } = models[0]
+            const { label_asym_id, label_entity_id } = models[0].atomicHierarchy.chains
+            for (let i = 0, il = label_asym_id.rowCount; i < il; ++i) {
+                const eI = entities.getEntityIndex(label_entity_id.value(i))
+                if (entities.data.type.value(eI) === 'polymer' && label_asym_id.value(i) !== 'A') {
+                    let qry = {
+                        'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), label_asym_id.value(i)])
+                    }
+                    console.log(label_asym_id.value(i))
+                    const expression = MS.struct.generator.atomGroups(qry)
+                    const query = compile<StructureSelection>(expression)
+                    const selection = query(new QueryContext(wholeStructure))
+                    const structure = StructureSelection.unionStructure(selection)
+
+                    repr2.setTheme({
+                        color: reprCtx.colorThemeRegistry.create('sequence-id', { structure }),
+                        size: reprCtx.sizeThemeRegistry.create('uniform', { structure })
+                    })
+                    await repr2.createOrUpdate({ ...provider2.defaultValues, quality: 'auto' }, structure).run()
+
+                    this.canvas3d.add(repr2)
+                }
+
+            }
+
+            this.canvas3d.resetCamera()
+
+            setTimeout(() => {
+                const pixelData = this.canvas3d.getPixelData('color')
+                const options: PNGOptions = {width: this.width, height: this.height}
+                const generatedPng = new PNG(options)
+                generatedPng.data = Buffer.from(pixelData.array)
+
+                let imagePathName = `${outPath}/${folderName}/${id}/${id}_comb.png`
+                generatedPng.pack().pipe(fs.createWriteStream(imagePathName)).on('finish', () => {
+                    console.log('Finished.')
+                    process.exit()
+                })
+            }, 1000)
 
 
         } catch (e) {
@@ -374,6 +465,32 @@ export async function getArrLengths(index: number, inPath: string) {
         console.log(models[index].symmetry.assemblies.length)
     } catch (e) {
         console.log(e)
-        process.exit(1)
     }
 }
+
+export async function getChnNames(inPath: string) {
+    try {
+        const cif = await readCifFile(inPath)
+        const models = await trajectoryFromMmCIF(cif as CifFrame).run()
+
+        const { entities } = models[0]
+        const { label_asym_id, label_entity_id } = models[0].atomicHierarchy.chains
+        for (let i = 0, il = label_asym_id.rowCount; i < il; ++i) {
+            const eI = entities.getEntityIndex(label_entity_id.value(i))
+            if (entities.data.type.value(eI) === 'polymer') {
+                console.log(label_asym_id.value(i))
+            }
+
+        }
+    } catch (e) {
+        console.log(e)
+    }
+}
+
+// const render = new RenderAll(2000, 1500)
+
+// render.renderComb('examples/6qw9.cif', 'images')
+
+// getChnNames('examples/3pqr.cif')
+// render.renderChn('A', 'examples/3pqr.cif', 'images', 3)
+// render.renderMod(0, 'examples/3pqr.cif', 'images', 0)

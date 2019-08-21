@@ -1,6 +1,8 @@
 import { Model, Structure, StructureSelection, QueryContext } from 'molstar/lib/mol-model/structure';
 import { compile } from 'molstar/lib/mol-script/runtime/query/compiler';
 import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
+import { StructureSelectionQueries as Q } from 'molstar/lib/mol-plugin/util/structure-selection-helper';
+
 
 
 const structure = Structure.Empty
@@ -19,7 +21,7 @@ for (let i = 0, il = label_asym_id.rowCount; i < il; ++i) {
 
 // create a new structure that has only the chain with name 'A'
 const expression = MS.struct.generator.atomGroups({
-    'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), 'A']),
+    'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), '']),
 })
 const query = compile<StructureSelection>(expression)
 const selection = query(new QueryContext(structure))
@@ -36,7 +38,7 @@ const chainStructure = StructureSelection.unionStructure(selection)
 // ball and stick for
 MS.struct.modifier.union([
     MS.struct.combinator.merge([ Q.ligandsPlusConnected, Q.branchedConnectedOnly ])
-]))
+])
 
 
 // reiterate what I thought

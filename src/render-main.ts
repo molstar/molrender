@@ -98,6 +98,24 @@ chnParse.addArgument([ 'chnName' ], {
     help: 'chain name'
 });
 
+const combParse = subparsers.addParser('comb', {addHelp: true})
+combParse.addArgument([ 'in' ], {
+    action: 'store',
+    help: 'input path of cif file'
+})
+combParse.addArgument([ 'out' ], {
+    action: 'store',
+    help: 'output path of png files (not including file name)'
+});
+combParse.addArgument([ '--width' ], {
+    action: 'store',
+    help: 'width of image'
+});
+combParse.addArgument([ '--height' ], {
+    action: 'store',
+    help: 'height of image'
+});
+
 const getLenParse = subparsers.addParser('getlen', {addHelp: true})
 getLenParse.addArgument([ 'in' ], {
     action: 'store',
@@ -140,9 +158,13 @@ switch (args.render) {
     case 'getNames':
         getChnNames(args.in)
         break;
+    case 'comb':
+        renderer = new RenderAll(width, height)
+        renderer.renderComb(args.in, args.out)
+        break
     case 'chn':
         renderer = new RenderAll(width, height)
-        renderer.renderChn(args.chnName, args.in, args.out, 1)
+        renderer.renderChn(args.chnName, args.in, args.out, 250)
         break;
     case 'mod':
         renderer = new RenderAll(width, height)

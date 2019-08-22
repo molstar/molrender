@@ -17,7 +17,7 @@ import { CartoonRepresentationProvider } from 'molstar/lib/mol-repr/structure/re
 import { MolecularSurfaceRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/molecular-surface';
 import { BallAndStickRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/ball-and-stick';
 import { GaussianSurfaceRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/gaussian-surface';
-// import { CarbohydrateRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/carbohydrate'
+import { CarbohydrateRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/carbohydrate'
 import { CIF, CifFrame } from 'molstar/lib/mol-io/reader/cif'
 import { trajectoryFromMmCIF } from 'molstar/lib/mol-model-formats/structure/mmcif';
 import { Model, Structure, StructureSymmetry, QueryContext, StructureSelection } from 'molstar/lib/mol-model/structure';
@@ -278,7 +278,7 @@ export class RenderAll {
 
     }
 
-    async renderChn(chnName: string, inPath: string, outPath: string, rep: Rep) {
+    async renderChn(chnName: string, inPath: string, outPath: string, maxSize: number) {
         const reprCtx = {
             wegbl: this.canvas3d.webgl,
             colorThemeRegistry: ColorTheme.createRegistry(),
@@ -310,30 +310,15 @@ export class RenderAll {
             const selection = query(new QueryContext(wholeStructure))
             const structure = StructureSelection.unionStructure(selection)
 
-            let repr: Representation<any, any, any>
-            let provider: RepresentationProvider<any, any, any>
-
-            switch (rep) {
-                case Rep.Cartoon:
-                    repr = CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
-                    provider = CartoonRepresentationProvider
-                    break;
-                case Rep.BallAndStick:
-                    repr = BallAndStickRepresentationProvider.factory(reprCtx, BallAndStickRepresentationProvider.getParams)
-                    provider = BallAndStickRepresentationProvider
-                    break;
-                case Rep.Gaussian:
-                    repr = GaussianSurfaceRepresentationProvider.factory(reprCtx, GaussianSurfaceRepresentationProvider.getParams)
-                    provider = GaussianSurfaceRepresentationProvider
-                    break;
-                case Rep.Molecular:
-                    repr = MolecularSurfaceRepresentationProvider.factory(reprCtx, MolecularSurfaceRepresentationProvider.getParams)
-                    provider = GaussianSurfaceRepresentationProvider
-                    break;
-                default:
-                    repr = CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
-                    provider = CartoonRepresentationProvider
+            if (structure.elementCount > maxSize) {
+                console.log(`Not rendered because molecule too large: ${structure.elementCount} > ${maxSize}`)
+                process.exit()
             }
+
+            const repr = BallAndStickRepresentationProvider.factory(reprCtx, BallAndStickRepresentationProvider.getParams)
+            const provider = BallAndStickRepresentationProvider
+
+            // console.log(`${chnName} ${structure.elementCount}`)
 
             repr.setTheme({
                 color: reprCtx.colorThemeRegistry.create('sequence-id', { structure }),
@@ -387,48 +372,54 @@ export class RenderAll {
             const models = await this.getModels(cif as CifFrame)
 
             let wholeStructure = await this.getStructure(models[0])
+            // const task = StructureSymmetry.buildAssembly(wholeStructure, models[0].symmetry.assemblies[0].id)
+            // wholeStructure = await task.run()
 
             let repr: Representation<any, any, any>
             let provider: RepresentationProvider<any, any, any>
 
-            console.log(`Rendering ${id} assembly IDK...`)
+            console.log(`Rendering ${id} combined image...`)
 
-            repr = CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
-            provider = CartoonRepresentationProvider
+            // provider = CarbohydrateRepresentationProvider
+            // repr = provider.factory(reprCtx, provider.getParams)
 
+            // repr.setTheme({
+            //     color: reprCtx.colorThemeRegistry.create('sequence-id', { wholeStructure }),
+            //     size: reprCtx.sizeThemeRegistry.create('uniform', { wholeStructure })
+            // })
+            // await repr.createOrUpdate({ ...provider.defaultValues, quality: 'auto' }, wholeStructure).run()
 
-            repr.setTheme({
-                color: reprCtx.colorThemeRegistry.create('sequence-id', { wholeStructure }),
-                size: reprCtx.sizeThemeRegistry.create('uniform', { wholeStructure })
-            })
-            await repr.createOrUpdate({ ...provider.defaultValues, quality: 'auto' }, wholeStructure).run()
+            // this.canvas3d.add(repr)
 
-            this.canvas3d.add(repr)
-
-            const repr2 = BallAndStickRepresentationProvider.factory(reprCtx, BallAndStickRepresentationProvider.getParams)
-            const provider2 = BallAndStickRepresentationProvider
             const { entities } = models[0]
             const { label_asym_id, label_entity_id } = models[0].atomicHierarchy.chains
             for (let i = 0, il = label_asym_id.rowCount; i < il; ++i) {
                 const eI = entities.getEntityIndex(label_entity_id.value(i))
-                if (entities.data.type.value(eI) === 'polymer' && label_asym_id.value(i) !== 'A') {
+                // if (entities.data.type.value(eI) === 'polymer') {
                     let qry = {
                         'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), label_asym_id.value(i)])
                     }
-                    console.log(label_asym_id.value(i))
                     const expression = MS.struct.generator.atomGroups(qry)
                     const query = compile<StructureSelection>(expression)
                     const selection = query(new QueryContext(wholeStructure))
                     const structure = StructureSelection.unionStructure(selection)
+                    // console.log(`${label_asym_id.value(i)} ${structure.elementCount}`)
+                    if (structure.elementCount > 250) {
+                        repr = CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
+                        provider = CartoonRepresentationProvider
+                    } else {
+                        repr = BallAndStickRepresentationProvider.factory(reprCtx, BallAndStickRepresentationProvider.getParams)
+                        provider = BallAndStickRepresentationProvider
+                    }
 
-                    repr2.setTheme({
+                    repr.setTheme({
                         color: reprCtx.colorThemeRegistry.create('sequence-id', { structure }),
                         size: reprCtx.sizeThemeRegistry.create('uniform', { structure })
                     })
-                    await repr2.createOrUpdate({ ...provider2.defaultValues, quality: 'auto' }, structure).run()
+                    await repr.createOrUpdate({ ...provider.defaultValues, quality: 'auto' }, structure).run()
 
-                    this.canvas3d.add(repr2)
-                }
+                    this.canvas3d.add(repr)
+                // }
 
             }
 
@@ -440,7 +431,7 @@ export class RenderAll {
                 const generatedPng = new PNG(options)
                 generatedPng.data = Buffer.from(pixelData.array)
 
-                let imagePathName = `${outPath}/${folderName}/${id}/${id}_comb.png`
+                let imagePathName = `${outPath}/${folderName}/${id}/${id}_combined.png`
                 generatedPng.pack().pipe(fs.createWriteStream(imagePathName)).on('finish', () => {
                     console.log('Finished.')
                     process.exit()
@@ -489,7 +480,7 @@ export async function getChnNames(inPath: string) {
 
 // const render = new RenderAll(2000, 1500)
 
-// render.renderComb('examples/6qw9.cif', 'images')
+// render.renderComb('examples/1oh3.cif', 'images')
 
 // getChnNames('examples/3pqr.cif')
 // render.renderChn('A', 'examples/3pqr.cif', 'images', 3)

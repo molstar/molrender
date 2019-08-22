@@ -25,3 +25,5 @@ do
 	done
 	x=$((x+1))
 done
+
+node src/render-main.js comb $1 $2

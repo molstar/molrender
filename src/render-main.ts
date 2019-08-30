@@ -115,6 +115,14 @@ combParse.addArgument([ '--height' ], {
     action: 'store',
     help: 'height of image'
 });
+combParse.addArgument([ 'modIndex' ], {
+    action: 'store',
+    help: 'model index'
+});
+combParse.addArgument([ 'asmIndex' ], {
+    action: 'store',
+    help: 'assembly index'
+});
 
 const getLenParse = subparsers.addParser('getlen', {addHelp: true})
 getLenParse.addArgument([ 'in' ], {
@@ -160,7 +168,7 @@ switch (args.render) {
         break;
     case 'comb':
         renderer = new RenderAll(width, height)
-        renderer.renderComb(args.in, args.out)
+        renderer.renderComb(args.modIndex, args.asmIndex, args.in, args.out)
         break
     case 'chn':
         renderer = new RenderAll(width, height)

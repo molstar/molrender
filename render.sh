@@ -21,9 +21,8 @@ do
 	while [ $y -lt ${arr[1]} ]
 	do
 		node src/render-main.js asm $1 $2 $x $y
+		node src/render-main.js comb $1 $2 $x $y
 		y=$((y+1))
 	done
 	x=$((x+1))
 done
-
-node src/render-main.js comb $1 $2

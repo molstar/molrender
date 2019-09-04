@@ -175,11 +175,11 @@ switch (args.render) {
         renderer.renderChn(args.chnName, args.in, args.out, 250)
         break;
     case 'mod':
-        renderer = new RenderAll(width, height)
-        renderer.renderMod(args.modIndex, args.in, args.out, rep)
+        // renderer = new RenderAll(width, height)
+        // renderer.renderMod(args.modIndex, args.in, args.out, rep)
         break;
     case 'asm':
-        renderer = new RenderAll(width, height)
-        renderer.renderAsm(args.modIndex, args.asmIndex, args.in, args.out, rep)
+        // renderer = new RenderAll(width, height)
+        // renderer.renderAsm(args.modIndex, args.asmIndex, args.in, args.out, rep)
         break;
 }

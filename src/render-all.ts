@@ -118,68 +118,63 @@ export class RenderAll {
         return Structure.ofModel(model);
     }
 
-    async renderAsm(modIndex: number, asmIndex: number, inPath: string, outPath: string, rep: Rep) {
+    async renderAsm(modIndex: number, asmIndex: number, models: readonly Model[], outPath: string, id: string) {
+        this.canvas3d.clear()
         const reprCtx = {
             wegbl: this.canvas3d.webgl,
             colorThemeRegistry: ColorTheme.createRegistry(),
             sizeThemeRegistry: SizeTheme.createRegistry()
         }
-        const id = getID(inPath)
-        const folderName = `${id[1]}${id[2]}`
 
         try {
-            if (!fs.existsSync(outPath + '/' + folderName)) {
-                fs.mkdirSync(outPath + '/' + folderName)
-            }
-
-            if (!fs.existsSync(`${outPath}/${folderName}/${id}`)) {
-                fs.mkdirSync(`${outPath}/${folderName}/${id}`)
-            }
-
-            const cif = await readCifFile(inPath)
-            const models = await this.getModels(cif as CifFrame)
-
             let structure = await this.getStructure(models[modIndex])
 
             const asmName = models[modIndex].symmetry.assemblies[asmIndex].id
             console.log(`Rendering ${id} model ${models[modIndex].modelNum} assembly ${asmName}...`)
 
-            const task = StructureSymmetry.buildAssembly(structure, models[modIndex].symmetry.assemblies[asmIndex].id)
-            structure = await task.run()
+            let wholeStructure = await this.getStructure(models[modIndex])
+            const task = StructureSymmetry.buildAssembly(wholeStructure, models[modIndex].symmetry.assemblies[asmIndex].id)
+            wholeStructure = await task.run()
 
-            let repr: Representation<any, any, any>
-            let provider: RepresentationProvider<any, any, any>
+            const carbRepr = CarbohydrateRepresentationProvider.factory(reprCtx, CarbohydrateRepresentationProvider.getParams)
 
-            switch (rep) {
-                case Rep.Cartoon:
-                    repr = CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
-                    provider = CartoonRepresentationProvider
-                    break;
-                case Rep.BallAndStick:
-                    repr = BallAndStickRepresentationProvider.factory(reprCtx, BallAndStickRepresentationProvider.getParams)
-                    provider = BallAndStickRepresentationProvider
-                    break;
-                case Rep.Gaussian:
-                    repr = GaussianSurfaceRepresentationProvider.factory(reprCtx, GaussianSurfaceRepresentationProvider.getParams)
-                    provider = GaussianSurfaceRepresentationProvider
-                    break;
-                case Rep.Molecular:
-                    repr = MolecularSurfaceRepresentationProvider.factory(reprCtx, MolecularSurfaceRepresentationProvider.getParams)
-                    provider = GaussianSurfaceRepresentationProvider
-                    break;
-                default:
-                    repr = CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
-                    provider = CartoonRepresentationProvider
-            }
+            carbRepr.setTheme({
+                color: reprCtx.colorThemeRegistry.create('carbohydrate-symbol', { structure: wholeStructure }),
+                size: reprCtx.sizeThemeRegistry.create('uniform', { structure: wholeStructure })
+            })
+            await carbRepr.createOrUpdate({ ...CarbohydrateRepresentationProvider.defaultValues, quality: 'auto' }, wholeStructure).run()
+            this.canvas3d.add(carbRepr)
+
+            // TODO: base repr off the amount of things
+            console.log(structure.polymerUnitCount)
+            const repr = CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
 
             repr.setTheme({
-                color: reprCtx.colorThemeRegistry.create('sequence-id', { structure }),
+                color: reprCtx.colorThemeRegistry.create('polymer-id', { structure }),
                 size: reprCtx.sizeThemeRegistry.create('uniform', { structure })
             })
-            await repr.createOrUpdate({ ...provider.defaultValues, quality: 'auto' }, structure).run()
+            await repr.createOrUpdate({ ... CartoonRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
 
             this.canvas3d.add(repr)
+
+            const expression = MS.struct.modifier.union([
+                MS.struct.combinator.merge([ Q.ligandPlusConnected, Q.branchedConnectedOnly ])
+            ])
+            const query = compile<StructureSelection>(expression)
+            const selection = query(new QueryContext(wholeStructure))
+            structure = StructureSelection.unionStructure(selection)
+
+            const ligandRepr = BallAndStickRepresentationProvider.factory(reprCtx, BallAndStickRepresentationProvider.getParams)
+
+            repr.setTheme({
+                color: reprCtx.colorThemeRegistry.create('element-symbol', { structure }),
+                size: reprCtx.sizeThemeRegistry.create('uniform', { structure })
+            })
+            await ligandRepr.createOrUpdate({ ...BallAndStickRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
+            this.canvas3d.add(ligandRepr)
+
             this.canvas3d.resetCamera()
+
             setTimeout(() => {
                 const pixelData = this.canvas3d.getPixelData('color')
                 const options: PNGOptions = {width: this.width, height: this.height}
@@ -199,63 +194,67 @@ export class RenderAll {
 
     }
 
-    async renderMod(modIndex: number, inPath: string, outPath: string, rep: Rep) {
+    async renderMod(modIndex: number, models: readonly Model[], outPath: string, id: string) {
+        const folderName = `${id[1]}${id[2]}`
+        this.canvas3d.clear()
         const reprCtx = {
             wegbl: this.canvas3d.webgl,
             colorThemeRegistry: ColorTheme.createRegistry(),
             sizeThemeRegistry: SizeTheme.createRegistry()
         }
-        const id = getID(inPath)
-        const folderName = `${id[1]}${id[2]}`
 
         try {
-            if (!fs.existsSync(`${outPath}/${folderName}`)) {
-                fs.mkdirSync(`${outPath}/${folderName}`)
+            if (!fs.existsSync(outPath + '/' + folderName)) {
+                fs.mkdirSync(outPath + '/' + folderName)
             }
 
             if (!fs.existsSync(`${outPath}/${folderName}/${id}`)) {
                 fs.mkdirSync(`${outPath}/${folderName}/${id}`)
             }
 
-            const cif = await readCifFile(inPath)
-            const models = await this.getModels(cif as CifFrame)
-
             let structure = await this.getStructure(models[modIndex])
 
             console.log(`Rendering ${id} model ${models[modIndex].modelNum}...`)
 
-            let repr: Representation<any, any, any>
-            let provider: RepresentationProvider<any, any, any>
+            let wholeStructure = await this.getStructure(models[modIndex])
 
-            switch (rep) {
-                case Rep.Cartoon:
-                    repr = CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
-                    provider = CartoonRepresentationProvider
-                    break;
-                case Rep.BallAndStick:
-                    repr = BallAndStickRepresentationProvider.factory(reprCtx, BallAndStickRepresentationProvider.getParams)
-                    provider = BallAndStickRepresentationProvider
-                    break;
-                case Rep.Gaussian:
-                    repr = GaussianSurfaceRepresentationProvider.factory(reprCtx, GaussianSurfaceRepresentationProvider.getParams)
-                    provider = GaussianSurfaceRepresentationProvider
-                    break;
-                case Rep.Molecular:
-                    repr = MolecularSurfaceRepresentationProvider.factory(reprCtx, MolecularSurfaceRepresentationProvider.getParams)
-                    provider = GaussianSurfaceRepresentationProvider
-                    break;
-                default:
-                    repr = CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
-                    provider = CartoonRepresentationProvider
-            }
+            const carbRepr = CarbohydrateRepresentationProvider.factory(reprCtx, CarbohydrateRepresentationProvider.getParams)
+
+            carbRepr.setTheme({
+                color: reprCtx.colorThemeRegistry.create('carbohydrate-symbol', { structure: wholeStructure }),
+                size: reprCtx.sizeThemeRegistry.create('uniform', { structure: wholeStructure })
+            })
+            await carbRepr.createOrUpdate({ ...CarbohydrateRepresentationProvider.defaultValues, quality: 'auto' }, wholeStructure).run()
+            this.canvas3d.add(carbRepr)
+
+            // TODO: base repr off the amount of things
+            console.log(structure.polymerUnitCount)
+            const repr = CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
 
             repr.setTheme({
-                color: reprCtx.colorThemeRegistry.create('sequence-id', { structure }),
+                color: reprCtx.colorThemeRegistry.create('polymer-id', { structure }),
                 size: reprCtx.sizeThemeRegistry.create('uniform', { structure })
             })
-            await repr.createOrUpdate({ ...provider.defaultValues, quality: 'auto' }, structure).run()
+            await repr.createOrUpdate({ ... CartoonRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
 
             this.canvas3d.add(repr)
+
+            const expression = MS.struct.modifier.union([
+                MS.struct.combinator.merge([ Q.ligandPlusConnected, Q.branchedConnectedOnly ])
+            ])
+            const query = compile<StructureSelection>(expression)
+            const selection = query(new QueryContext(wholeStructure))
+            structure = StructureSelection.unionStructure(selection)
+
+            const ligandRepr = BallAndStickRepresentationProvider.factory(reprCtx, BallAndStickRepresentationProvider.getParams)
+
+            repr.setTheme({
+                color: reprCtx.colorThemeRegistry.create('element-symbol', { structure }),
+                size: reprCtx.sizeThemeRegistry.create('uniform', { structure })
+            })
+            await ligandRepr.createOrUpdate({ ...BallAndStickRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
+            this.canvas3d.add(ligandRepr)
+
             this.canvas3d.resetCamera()
 
             setTimeout(() => {
@@ -263,14 +262,12 @@ export class RenderAll {
                 const options: PNGOptions = {width: this.width, height: this.height}
                 const generatedPng = new PNG(options)
                 generatedPng.data = Buffer.from(pixelData.array)
-
-                let imagePathName = `${outPath}/${folderName}/${id}/${id}_model-${models[modIndex].modelNum}.png`
+                let imagePathName = `${outPath}/${folderName}/${id}/${id}_model-${models[modIndex].modelNum}-assembly-${asmName}.png`
                 generatedPng.pack().pipe(fs.createWriteStream(imagePathName)).on('finish', () => {
                     console.log('Finished.')
                     process.exit()
                 })
             }, 50)
-
 
         } catch (e) {
             console.error(e)
@@ -312,7 +309,7 @@ export class RenderAll {
             const structure = StructureSelection.unionStructure(selection)
 
             if (structure.elementCount > maxSize) {
-                console.log(`Not rendered because molecule too large: ${structure.elementCount} > ${maxSize}`)
+                console.log(`Not rendered because polymer too large: ${structure.elementCount} > ${maxSize}`)
                 process.exit()
             }
 
@@ -352,96 +349,26 @@ export class RenderAll {
     }
 
     async renderComb(modIndex: number, asmIndex: number, inPath: string, outPath: string) {
-        const reprCtx = {
-            wegbl: this.canvas3d.webgl,
-            colorThemeRegistry: ColorTheme.createRegistry(),
-            sizeThemeRegistry: SizeTheme.createRegistry()
-        }
+        const cif = await readCifFile(inPath)
+        const models = await this.getModels(cif as CifFrame)
         const id = getID(inPath)
-        const folderName = `${id[1]}${id[2]}`
 
+        const folderName = `${id[1]}${id[2]}`
+    
         try {
-            if (!fs.existsSync(`${outPath}/${folderName}`)) {
-                fs.mkdirSync(`${outPath}/${folderName}`)
+            if (!fs.existsSync(outPath + '/' + folderName)) {
+                fs.mkdirSync(outPath + '/' + folderName)
             }
 
             if (!fs.existsSync(`${outPath}/${folderName}/${id}`)) {
                 fs.mkdirSync(`${outPath}/${folderName}/${id}`)
             }
-
-            const cif = await readCifFile(inPath)
-            const models = await this.getModels(cif as CifFrame)
-
-            let wholeStructure = await this.getStructure(models[modIndex])
-            const task = StructureSymmetry.buildAssembly(wholeStructure, models[modIndex].symmetry.assemblies[asmIndex].id)
-            wholeStructure = await task.run()
-
-            let repr: Representation<any, any, any>
-            let provider: RepresentationProvider<any, any, any>
-
-            const asmName = models[modIndex].symmetry.assemblies[asmIndex].id
-            console.log(`Rendering ${id} model ${models[modIndex].modelNum} assembly ${asmName} combined image...`)
-
-            provider = CarbohydrateRepresentationProvider
-            repr = provider.factory(reprCtx, provider.getParams)
-
-            repr.setTheme({
-                color: reprCtx.colorThemeRegistry.create('carbohydrate-symbol', { wholeStructure }),
-                size: reprCtx.sizeThemeRegistry.create('uniform', { wholeStructure })
-            })
-            await repr.createOrUpdate({ ...provider.defaultValues, quality: 'auto' }, wholeStructure).run()
-
-            this.canvas3d.add(repr)
-
-            provider = CartoonRepresentationProvider
-            repr = provider.factory(reprCtx, provider.getParams)
-
-            repr.setTheme({
-                color: reprCtx.colorThemeRegistry.create('molecule-type', { wholeStructure }),
-                size: reprCtx.sizeThemeRegistry.create('uniform', { wholeStructure })
-            })
-            await repr.createOrUpdate({ ...provider.defaultValues, quality: 'auto' }, wholeStructure).run()
-
-            this.canvas3d.add(repr)
-
-            const expression = MS.struct.modifier.union([
-                MS.struct.combinator.merge([ Q.ligandPlusConnected, Q.branchedConnectedOnly ])
-            ])
-            const query = compile<StructureSelection>(expression)
-            const selection = query(new QueryContext(wholeStructure))
-            const structure = StructureSelection.unionStructure(selection)
-
-            provider = BallAndStickRepresentationProvider
-            repr = provider.factory(reprCtx, provider.getParams)
-
-            repr.setTheme({
-                color: reprCtx.colorThemeRegistry.create('element-symbol', { structure }),
-                size: reprCtx.sizeThemeRegistry.create('uniform', { structure })
-            })
-            await repr.createOrUpdate({ ...provider.defaultValues, quality: 'auto' }, structure).run()
-
-            this.canvas3d.add(repr)
-
-            this.canvas3d.resetCamera()
-
-            setTimeout(() => {
-                const pixelData = this.canvas3d.getPixelData('color')
-                const options: PNGOptions = {width: this.width, height: this.height}
-                const generatedPng = new PNG(options)
-                generatedPng.data = Buffer.from(pixelData.array)
-
-                let imagePathName = `${outPath}/${folderName}/${id}/${id}_${models[modIndex].modelNum}-assembly-${asmName}combined.png`
-                generatedPng.pack().pipe(fs.createWriteStream(imagePathName)).on('finish', () => {
-                    console.log('Finished.')
-                    process.exit()
-                })
-            }, 50)
-
-
-        } catch (e) {
-            console.error(e)
-            process.exit(1)
         }
+
+        this.renderAsm(modIndex, asmIndex, models, outPath, id)
+    }
+
+    async renderMod2() {
 
     }
 
@@ -477,6 +404,36 @@ export async function getChnNames(inPath: string) {
     }
 }
 
+export async function getArrLengthsPy(index: number, inPath: string) {
+    try {
+        const cif = await readCifFile(inPath)
+        const models = await trajectoryFromMmCIF(cif as CifFrame).run()
+        const val = `{ modlen: ${models.length}, asmlen: ${models[index].symmetry.assemblies.length}}`
+        return val
+    } catch (e) {
+        console.log(e)
+    }
+}
+
+export async function getChnNamesPy(inPath: string) {
+    try {
+        const cif = await readCifFile(inPath)
+        const models = await trajectoryFromMmCIF(cif as CifFrame).run()
+
+        const { entities } = models[0]
+        const { label_asym_id, label_entity_id } = models[0].atomicHierarchy.chains
+        for (let i = 0, il = label_asym_id.rowCount; i < il; ++i) {
+            const eI = entities.getEntityIndex(label_entity_id.value(i))
+            if (entities.data.type.value(eI) === 'polymer') {
+                return (label_asym_id.value(i))
+            }
+
+        }
+    } catch (e) {
+        console.log(e)
+    }
+}
+
 // const render = new RenderAll(2000, 1500)
 
 // render.renderComb('examples/1oh3.cif', 'images')
@@ -484,3 +441,4 @@ export async function getChnNames(inPath: string) {
 // getChnNames('examples/3pqr.cif')
 // render.renderChn('A', 'examples/3pqr.cif', 'images', 3)
 // render.renderMod(0, 'examples/3pqr.cif', 'images', 0)
+

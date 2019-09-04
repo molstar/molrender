@@ -180,7 +180,7 @@ export class RenderAll {
                 const options: PNGOptions = {width: this.width, height: this.height}
                 const generatedPng = new PNG(options)
                 generatedPng.data = Buffer.from(pixelData.array)
-                let imagePathName = `${outPath}/${folderName}/${id}/${id}_model-${models[modIndex].modelNum}-assembly-${asmName}.png`
+                let imagePathName = `${outPath}/${id}_model-${models[modIndex].modelNum}-assembly-${asmName}.png`
                 generatedPng.pack().pipe(fs.createWriteStream(imagePathName)).on('finish', () => {
                     console.log('Finished.')
                     process.exit()
@@ -354,7 +354,6 @@ export class RenderAll {
         const id = getID(inPath)
 
         const folderName = `${id[1]}${id[2]}`
-    
         try {
             if (!fs.existsSync(outPath + '/' + folderName)) {
                 fs.mkdirSync(outPath + '/' + folderName)
@@ -363,9 +362,18 @@ export class RenderAll {
             if (!fs.existsSync(`${outPath}/${folderName}/${id}`)) {
                 fs.mkdirSync(`${outPath}/${folderName}/${id}`)
             }
+        } catch (e) {
+            console.log(e)
+            process.exit(1)
+        }
+        outPath += `${folderName}/${id}/`
+
+        for (let mod = 0; mod < models.length; mod++) {
+            for (let asm = 0; asm < models[mod].symmetry.assemblies.length; asm++) {
+                this.renderAsm(mod, asm, models, outPath, id)
+            }
         }
 
-        this.renderAsm(modIndex, asmIndex, models, outPath, id)
     }
 
     async renderMod2() {

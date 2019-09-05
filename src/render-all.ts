@@ -417,12 +417,13 @@ export class RenderAll {
     }
 
     async renderComb(modIndex: number, asmIndex: number, inPath: string, outPath: string) {
-        const cif = await readCifFile(inPath)
-        const models = await this.getModels(cif as CifFrame)
-        const id = getID(inPath)
-
-        const folderName = `${id[1]}${id[2]}`
         try {
+            const cif = await readCifFile(inPath)
+            const models = await this.getModels(cif as CifFrame)
+            const id = getID(inPath)
+
+            const folderName = `${id[1]}${id[2]}`
+
             if (!fs.existsSync(outPath + '/' + folderName)) {
                 fs.mkdirSync(outPath + '/' + folderName)
             }
@@ -430,15 +431,16 @@ export class RenderAll {
             if (!fs.existsSync(`${outPath}/${folderName}/${id}`)) {
                 fs.mkdirSync(`${outPath}/${folderName}/${id}`)
             }
+
+            outPath += `/${folderName}/${id}/`
+
+            const chnObj = new ChnObj(this, 0, 0, models, outPath, id, null)
+            const modObj = new ModObj(this, 0, 0, models, outPath, id, chnObj)
+            this.renderAsm(0, 0, models, outPath, id, modObj)
         } catch (e) {
             console.log(e)
             process.exit(1)
         }
-        outPath += `/${folderName}/${id}/`
-
-        const chnObj = new ChnObj(this, 0, 0, models, outPath, id, null)
-        const modObj = new ModObj(this, 0, 0, models, outPath, id, chnObj)
-        this.renderAsm(0, 0, models, outPath, id, modObj)
         //     console.log('w')
         //     // process.exit()
         // }

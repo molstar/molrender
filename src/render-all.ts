@@ -26,7 +26,6 @@ import { RepresentationProvider, Representation } from 'molstar/lib/mol-repr/rep
 import { compile } from 'molstar/lib/mol-script/runtime/query/compiler';
 import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
 import { StructureSelectionQueries as Q } from 'molstar/lib/mol-plugin/util/structure-selection-helper';
-import { is } from 'immutable';
 
 type Nullable<T> = T | null;
 
@@ -68,7 +67,7 @@ class ChnObj extends RenderObj {
     }
 }
 
-function getID(inPath: string) {
+export function getID(inPath: string) {
     const arr = inPath.split('/')
     return arr[arr.length - 1].split('.')[0]
 }
@@ -84,8 +83,10 @@ async function readFile(path: string) {
     } else {
         return readFileAsync(path, 'utf8');
     }
+}
 
-
+export async function getModels(frame: CifFrame) {
+    return await trajectoryFromMmCIF(frame).run();
 }
 
 export async function openCif(path: string) {
@@ -143,17 +144,13 @@ export class RenderAll {
 
     }
 
-    async getModels(frame: CifFrame) {
-        return await trajectoryFromMmCIF(frame).run();
-    }
-
     async getStructure(model: Model) {
         return Structure.ofModel(model);
     }
 
     async renderAsm(modIndex: number, asmIndex: number, models: readonly Model[], outPath: string, id: string, nextObj: Nullable<RenderObj>) {
         if (asmIndex < models[modIndex].symmetry.assemblies.length) {
-            this.canvas3d.clear()
+            // this.canvas3d.clear()
             const reprCtx = {
                 wegbl: this.canvas3d.webgl,
                 colorThemeRegistry: ColorTheme.createRegistry(),
@@ -208,6 +205,7 @@ export class RenderAll {
                 this.canvas3d.add(ligandRepr)
 
                 this.canvas3d.resetCamera()
+
                 setTimeout(() => {
                     const pixelData = this.canvas3d.getPixelData('color')
                     const options: PNGOptions = {width: this.width, height: this.height}
@@ -216,7 +214,8 @@ export class RenderAll {
                     let imagePathName = `${outPath}/${id}_model-${models[modIndex].modelNum}-assembly-${asmName}.png`
                     generatedPng.pack().pipe(fs.createWriteStream(imagePathName)).on('finish', async () => {
                         console.log('Finished.')
-
+                        this.canvas3d.remove(ligandRepr)
+                        this.canvas3d.clear()
                         if (++asmIndex < models[modIndex].symmetry.assemblies.length) {
                             this.renderAsm(modIndex, asmIndex, models, outPath, id, nextObj)
                         } else if (++modIndex < models.length) {
@@ -417,10 +416,10 @@ export class RenderAll {
 
     }
 
-    async renderComb(modIndex: number, asmIndex: number, inPath: string, outPath: string) {
+    async renderComb(inPath: string, outPath: string) {
         try {
             const cif = await readCifFile(inPath)
-            const models = await this.getModels(cif as CifFrame)
+            const models = await getModels(cif as CifFrame)
             const id = getID(inPath)
 
             const folderName = `${id[1]}${id[2]}`
@@ -453,65 +452,6 @@ export class RenderAll {
 
 }
 
-export async function getArrLengths(index: number, inPath: string) {
-    try {
-        const cif = await readCifFile(inPath)
-        const models = await trajectoryFromMmCIF(cif as CifFrame).run()
-        console.log(models.length)
-        console.log(models[index].symmetry.assemblies.length)
-    } catch (e) {
-        console.log(e)
-    }
-}
-
-export async function getChnNames(inPath: string) {
-    try {
-        const cif = await readCifFile(inPath)
-        const models = await trajectoryFromMmCIF(cif as CifFrame).run()
-
-        const { entities } = models[0]
-        const { label_asym_id, label_entity_id } = models[0].atomicHierarchy.chains
-        for (let i = 0, il = label_asym_id.rowCount; i < il; ++i) {
-            const eI = entities.getEntityIndex(label_entity_id.value(i))
-            if (entities.data.type.value(eI) === 'polymer') {
-                console.log(label_asym_id.value(i))
-            }
-
-        }
-    } catch (e) {
-        console.log(e)
-    }
-}
-
-export async function getArrLengthsPy(index: number, inPath: string) {
-    try {
-        const cif = await readCifFile(inPath)
-        const models = await trajectoryFromMmCIF(cif as CifFrame).run()
-        const val = `{ modlen: ${models.length}, asmlen: ${models[index].symmetry.assemblies.length}}`
-        return val
-    } catch (e) {
-        console.log(e)
-    }
-}
-
-export async function getChnNamesPy(inPath: string) {
-    try {
-        const cif = await readCifFile(inPath)
-        const models = await trajectoryFromMmCIF(cif as CifFrame).run()
-
-        const { entities } = models[0]
-        const { label_asym_id, label_entity_id } = models[0].atomicHierarchy.chains
-        for (let i = 0, il = label_asym_id.rowCount; i < il; ++i) {
-            const eI = entities.getEntityIndex(label_entity_id.value(i))
-            if (entities.data.type.value(eI) === 'polymer') {
-                return (label_asym_id.value(i))
-            }
-
-        }
-    } catch (e) {
-        console.log(e)
-    }
-}
 
 // const render = new RenderAll(2000, 1500)
 

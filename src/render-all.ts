@@ -378,6 +378,7 @@ export class RenderAll {
                 console.log(`Not rendered because polymer too large: ${structure.elementCount} > ${maxSize}`)
                 index++
                 this.renderChn(index, models, outPath, id, nextObj)
+                return
             }
 
             const repr = BallAndStickRepresentationProvider.factory(reprCtx, BallAndStickRepresentationProvider.getParams)

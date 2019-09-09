@@ -5,6 +5,7 @@
  */
 
 import * as argparse from 'argparse'
+import fs = require('fs')
 import { RenderAll, readCifFile, getModels, getID } from './render-all'
 import { CifFrame, CifBlock } from 'molstar/lib/mol-io/reader/cif';
 import { Model } from 'molstar/lib/mol-model/structure';
@@ -121,6 +122,8 @@ async function main() {
     }
 
     const id = getID(args.in)
+    const folderName = `${id[1]}${id[2]}`
+
     let renderer = new RenderAll(width, height)
     let cif: CifBlock
     let models: readonly Model[]
@@ -136,16 +139,46 @@ async function main() {
             renderer.renderComb(args.in, args.out)
             break
         case 'chn':
+            if (!fs.existsSync(args.out + '/' + folderName)) {
+                fs.mkdirSync(args.out + '/' + folderName)
+            }
+
+            if (!fs.existsSync(`${args.out}/${folderName}/${id}`)) {
+                fs.mkdirSync(`${args.out}/${folderName}/${id}`)
+            }
+
+            args.out += `/${folderName}/${id}/`
+
             cif = await readCifFile(args.in)
             models = await getModels(cif as CifFrame)
             renderer.renderChn(args.index, models, args.out, id, null)
             break;
         case 'mod':
+            if (!fs.existsSync(args.out + '/' + folderName)) {
+                fs.mkdirSync(args.out + '/' + folderName)
+            }
+
+            if (!fs.existsSync(`${args.out}/${folderName}/${id}`)) {
+                fs.mkdirSync(`${args.out}/${folderName}/${id}`)
+            }
+
+            args.out += `/${folderName}/${id}/`
+
             cif = await readCifFile(args.in)
             models = await getModels(cif as CifFrame)
             renderer.renderMod(args.modIndex, models, args.out, id, null)
             break;
         case 'asm':
+            if (!fs.existsSync(args.out + '/' + folderName)) {
+                fs.mkdirSync(args.out + '/' + folderName)
+            }
+
+            if (!fs.existsSync(`${args.out}/${folderName}/${id}`)) {
+                fs.mkdirSync(`${args.out}/${folderName}/${id}`)
+            }
+
+            args.out += `/${folderName}/${id}/`
+
             cif = await readCifFile(args.in)
             models = await getModels(cif as CifFrame)
             renderer.renderAsm(args.modIndex, args.asmIndex, models, args.out, id, null)

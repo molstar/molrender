@@ -22,7 +22,7 @@ import { CIF, CifFrame } from 'molstar/lib/mol-io/reader/cif'
 import { trajectoryFromMmCIF } from 'molstar/lib/mol-model-formats/structure/mmcif';
 import { Model, Structure, StructureSymmetry, QueryContext, StructureSelection } from 'molstar/lib/mol-model/structure';
 import { ColorNames } from 'molstar/lib/mol-util/color/tables';
-import { RepresentationProvider, Representation } from 'molstar/lib/mol-repr/representation';
+import { RepresentationProvider } from 'molstar/lib/mol-repr/representation';
 import { compile } from 'molstar/lib/mol-script/runtime/query/compiler';
 import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
 import { StructureSelectionQueries as Q } from 'molstar/lib/mol-plugin/util/structure-selection-helper';
@@ -149,8 +149,8 @@ export class RenderAll {
     }
 
     async renderAsm(modIndex: number, asmIndex: number, models: readonly Model[], outPath: string, id: string, nextObj: Nullable<RenderObj>) {
+        this.canvas3d.clear()
         if (asmIndex < models[modIndex].symmetry.assemblies.length) {
-            // this.canvas3d.clear()
             const reprCtx = {
                 wegbl: this.canvas3d.webgl,
                 colorThemeRegistry: ColorTheme.createRegistry(),
@@ -163,9 +163,9 @@ export class RenderAll {
                 const asmName = models[modIndex].symmetry.assemblies[asmIndex].id
                 console.log(`Rendering ${id} model ${models[modIndex].modelNum} assembly ${asmName}...`)
 
-                let wholeStructure = await this.getStructure(models[modIndex])
-                const task = StructureSymmetry.buildAssembly(wholeStructure, models[modIndex].symmetry.assemblies[asmIndex].id)
-                wholeStructure = await task.run()
+                let origStructure = await this.getStructure(models[modIndex])
+                const task = StructureSymmetry.buildAssembly(origStructure, models[modIndex].symmetry.assemblies[asmIndex].id)
+                const wholeStructure = await task.run()
 
                 const carbRepr = CarbohydrateRepresentationProvider.factory(reprCtx, CarbohydrateRepresentationProvider.getParams)
 
@@ -176,15 +176,19 @@ export class RenderAll {
                 await carbRepr.createOrUpdate({ ...CarbohydrateRepresentationProvider.defaultValues, quality: 'auto' }, wholeStructure).run()
                 this.canvas3d.add(carbRepr)
 
-                // TODO: base repr off the amount of things
-                // console.log(structure.polymerUnitCount)
-                const repr = CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
+                // console.log(wholeStructure.polymerUnitCount)
+                let provider: RepresentationProvider<any, any, any>
+                provider = CartoonRepresentationProvider
+                if (structure.polymerUnitCount > 5) {
+                    provider = MolecularSurfaceRepresentationProvider
+                }
+                const repr = provider.factory(reprCtx, provider.getParams)
 
                 repr.setTheme({
-                    color: reprCtx.colorThemeRegistry.create('polymer-id', { structure }),
-                    size: reprCtx.sizeThemeRegistry.create('uniform', { structure })
+                    color: reprCtx.colorThemeRegistry.create('polymer-id', { structure: wholeStructure }),
+                    size: reprCtx.sizeThemeRegistry.create('uniform', { structure: wholeStructure })
                 })
-                await repr.createOrUpdate({ ... CartoonRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
+                await repr.createOrUpdate({ ... provider.defaultValues, quality: 'auto' }, wholeStructure).run()
 
                 this.canvas3d.add(repr)
 
@@ -228,7 +232,7 @@ export class RenderAll {
                             }
                         }
                     })
-                }, 500)
+                }, 50)
 
             } catch (e) {
                 console.error(e)
@@ -262,26 +266,28 @@ export class RenderAll {
 
             console.log(`Rendering ${id} model ${models[modIndex].modelNum}...`)
 
-            let wholeStructure = await this.getStructure(models[modIndex])
-
             const carbRepr = CarbohydrateRepresentationProvider.factory(reprCtx, CarbohydrateRepresentationProvider.getParams)
 
             carbRepr.setTheme({
-                color: reprCtx.colorThemeRegistry.create('carbohydrate-symbol', { structure: wholeStructure }),
-                size: reprCtx.sizeThemeRegistry.create('uniform', { structure: wholeStructure })
+                color: reprCtx.colorThemeRegistry.create('carbohydrate-symbol', { structure }),
+                size: reprCtx.sizeThemeRegistry.create('uniform', { structure })
             })
-            await carbRepr.createOrUpdate({ ...CarbohydrateRepresentationProvider.defaultValues, quality: 'auto' }, wholeStructure).run()
+            await carbRepr.createOrUpdate({ ...CarbohydrateRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
             this.canvas3d.add(carbRepr)
 
-            // TODO: base repr off the amount of things
             // console.log(structure.polymerUnitCount)
-            const repr = CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
+            let provider: RepresentationProvider<any, any, any>
+            provider = CartoonRepresentationProvider
+            if (structure.polymerUnitCount > 5) {
+                provider = MolecularSurfaceRepresentationProvider
+            }
+            const repr = provider.factory(reprCtx, provider.getParams)
 
             repr.setTheme({
                 color: reprCtx.colorThemeRegistry.create('polymer-id', { structure }),
                 size: reprCtx.sizeThemeRegistry.create('uniform', { structure })
             })
-            await repr.createOrUpdate({ ... CartoonRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
+            await repr.createOrUpdate({ ... provider.defaultValues, quality: 'auto' }, structure).run()
 
             this.canvas3d.add(repr)
 
@@ -289,7 +295,7 @@ export class RenderAll {
                 MS.struct.combinator.merge([ Q.ligandPlusConnected, Q.branchedConnectedOnly ])
             ])
             const query = compile<StructureSelection>(expression)
-            const selection = query(new QueryContext(wholeStructure))
+            const selection = query(new QueryContext(structure))
             structure = StructureSelection.unionStructure(selection)
 
             const ligandRepr = BallAndStickRepresentationProvider.factory(reprCtx, BallAndStickRepresentationProvider.getParams)
@@ -311,6 +317,8 @@ export class RenderAll {
                 generatedPng.pack().pipe(fs.createWriteStream(imagePathName)).on('finish', async () => {
                     console.log('Finished.')
 
+                    this.canvas3d.remove(ligandRepr)
+                    this.canvas3d.clear()
                     if (++modIndex < models.length) {
                         this.renderMod(modIndex, models, outPath, id, nextObj)
                     } else {
@@ -321,7 +329,7 @@ export class RenderAll {
                         }
                     }
                 })
-            }, 500)
+            }, 50)
 
         } catch (e) {
             console.error(e)
@@ -346,7 +354,7 @@ export class RenderAll {
         }
 
         const eI = entities.getEntityIndex(label_entity_id.value(index))
-        if (entities.data.type.value(eI) === 'polymer') {
+        if (entities.data.type.value(eI) !== 'polymer') {
             index++
             this.renderChn(index, models, outPath, id, nextObj)
             return
@@ -403,6 +411,7 @@ export class RenderAll {
                 let imagePathName = `${outPath}/${id}_chain-${chnName}.png`
                 generatedPng.pack().pipe(fs.createWriteStream(imagePathName)).on('finish', () => {
                     console.log('Finished.')
+                    this.canvas3d.clear()
                     index++;
                     this.renderChn(index, models, outPath, id, nextObj)
                 })
@@ -441,23 +450,6 @@ export class RenderAll {
             console.log(e)
             process.exit(1)
         }
-        //     console.log('w')
-        //     // process.exit()
-        // }
     }
-
-    async renderMod2() {
-
-    }
-
 }
-
-
-// const render = new RenderAll(2000, 1500)
-
-// render.renderComb('examples/1oh3.cif', 'images')
-
-// getChnNames('examples/3pqr.cif')
-// render.renderChn('A', 'examples/3pqr.cif', 'images', 3)
-// render.renderMod(0, 'examples/3pqr.cif', 'images', 0)
 

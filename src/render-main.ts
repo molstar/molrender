@@ -76,6 +76,10 @@ chnParse.addArgument([ '--height' ], {
     action: 'store',
     help: 'height of image'
 });
+chnParse.addArgument([ '--max' ], {
+    action: 'store',
+    help: 'max size of chain'
+});
 chnParse.addArgument([ 'in' ], {
     action: 'store',
     help: 'input path of cif file'
@@ -84,12 +88,12 @@ chnParse.addArgument([ 'out' ], {
     action: 'store',
     help: 'output path of png files (not including file name)'
 });
-chnParse.addArgument([ 'index' ], {
+chnParse.addArgument([ 'name' ], {
     action: 'store',
-    help: 'chain index'
+    help: 'chain name'
 });
 
-const combParse = subparsers.addParser('all', {addHelp: true})
+const combParse = subparsers.addParser('comb', {addHelp: true})
 combParse.addArgument([ 'in' ], {
     action: 'store',
     help: 'input path of cif file'
@@ -107,18 +111,43 @@ combParse.addArgument([ '--height' ], {
     help: 'height of image'
 });
 
+const allParse = subparsers.addParser('all', {addHelp: true})
+allParse.addArgument([ 'in' ], {
+    action: 'store',
+    help: 'directory containing cifs to be rendered'
+});
+allParse.addArgument([ 'out' ], {
+    action: 'store',
+    help: 'output path of png files (not including file name)'
+});
+allParse.addArgument([ '--list' ], {
+    action: 'store',
+    help: 'path of file containing pdb IDs'
+});
+allParse.addArgument([ '--width' ], {
+    action: 'store',
+    help: 'width of image'
+});
+allParse.addArgument([ '--height' ], {
+    action: 'store',
+    help: 'height of image'
+});
 
 const args = parser.parseArgs();
 
 let width = 2048
 let height = 1536
+let max = 250
 
 async function main() {
-    if (args.width != null) {
+    if (args.width !== null) {
         width = args.width
     }
-    if (args.height != null) {
+    if (args.height !== null) {
         height = args.height
+    }
+    if (args.max !== null) {
+        max = args.max
     }
 
     const id = getID(args.in)
@@ -129,14 +158,13 @@ async function main() {
     let models: readonly Model[]
 
     switch (args.render) {
-        // case 'getlen':
-        //     getArrLengths(args.modIndex, args.in)
-        //     break;
-        // case 'getNames':
-        //     getChnNames(args.in)
-        //     break;
         case 'all':
-            renderer.renderComb(args.in, args.out)
+            await renderer.renderList(args.in, args.out, args.list)
+            process.exit()
+            break
+        case 'comb':
+            await renderer.renderComb(args.in, args.out)
+            process.exit()
             break
         case 'chn':
             if (!fs.existsSync(args.out + '/' + folderName)) {
@@ -151,7 +179,8 @@ async function main() {
 
             cif = await readCifFile(args.in)
             models = await getModels(cif as CifFrame)
-            renderer.renderChn(args.index, models, args.out, id, null)
+            await renderer.renderChn(args.name, max, models, args.out, id)
+            process.exit()
             break;
         case 'mod':
             if (!fs.existsSync(args.out + '/' + folderName)) {
@@ -166,7 +195,8 @@ async function main() {
 
             cif = await readCifFile(args.in)
             models = await getModels(cif as CifFrame)
-            renderer.renderMod(args.modIndex, models, args.out, id, null)
+            await renderer.renderMod(args.modIndex, models, args.out, id)
+            process.exit()
             break;
         case 'asm':
             if (!fs.existsSync(args.out + '/' + folderName)) {
@@ -181,7 +211,8 @@ async function main() {
 
             cif = await readCifFile(args.in)
             models = await getModels(cif as CifFrame)
-            renderer.renderAsm(args.modIndex, args.asmIndex, models, args.out, id, null)
+            await renderer.renderAsm(args.modIndex, args.asmIndex, models, args.out, id)
+            process.exit()
             break;
     }
 }

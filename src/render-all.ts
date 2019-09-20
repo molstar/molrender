@@ -143,11 +143,11 @@ export class RenderAll {
         // }
         return new Promise<void>(async resolve => {
             try {
-                // Get model structure and assembly structure
-                let structure = await this.getStructure(models[modIndex])
-
                 const asmName = models[modIndex].symmetry.assemblies[asmIndex].id
                 console.log(`Rendering ${id} model ${models[modIndex].modelNum} assembly ${asmName}...`)
+
+                // Get model structure and assembly structure
+                let structure = await this.getStructure(models[modIndex])
 
                 let origStructure = await this.getStructure(models[modIndex])
                 const task = StructureSymmetry.buildAssembly(origStructure, models[modIndex].symmetry.assemblies[asmIndex].id)
@@ -216,9 +216,10 @@ export class RenderAll {
     async renderMod(modIndex: number, models: readonly Model[], outPath: string, id: string) {
         return new Promise<void>(async resolve => {
             try {
+                console.log(`Rendering ${id} model ${models[modIndex].modelNum}...`)
+
                 // Get model structure
                 let structure = await this.getStructure(models[modIndex])
-                console.log(`Rendering ${id} model ${models[modIndex].modelNum}...`)
 
                 // Add carbs to canvas
                 const carbRepr = CarbohydrateRepresentationProvider.factory(this.reprCtx, CarbohydrateRepresentationProvider.getParams)
@@ -284,8 +285,9 @@ export class RenderAll {
     async renderChn(chnName: string, maxSize: number, models: readonly Model[], outPath: string, id: string) {
         return new Promise<void>(async resolve => {
             try {
-                let wholeStructure = await this.getStructure(models[0])
                 console.log(`Rendering ${id} chain ${chnName}...`)
+
+                let wholeStructure = await this.getStructure(models[0])
 
                 const expression = MS.struct.generator.atomGroups({
                     'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), chnName])

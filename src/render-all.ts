@@ -138,9 +138,6 @@ export class RenderAll {
     }
 
     async renderAsm(modIndex: number, asmIndex: number, models: readonly Model[], outPath: string, id: string) {
-        // if (asmIndex >= models[modIndex].symmetry.assemblies.length) {
-        //     return;
-        // }
         return new Promise<void>(async resolve => {
             try {
                 const asmName = models[modIndex].symmetry.assemblies[asmIndex].id

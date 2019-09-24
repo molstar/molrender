@@ -101,6 +101,10 @@ export class RenderAll {
                 ...Canvas3DParams.postprocessing.defaultValue,
                 occlusionEnable: true,
                 outlineEnable: true
+            },
+            trackball: {
+                ...Canvas3DParams.trackball.defaultValue,
+
             }
         })
         this.canvas3d.animate()
@@ -162,16 +166,25 @@ export class RenderAll {
 
                 // Add model to canvas
                 let provider: RepresentationProvider<any, any, any>
-                provider = CartoonRepresentationProvider
-                if (structure.polymerUnitCount > 5) {
+
+                if (wholeStructure.polymerUnitCount > 5) {
                     provider = MolecularSurfaceRepresentationProvider
+                } else {
+                    provider = CartoonRepresentationProvider
                 }
                 const repr = provider.factory(this.reprCtx, provider.getParams)
 
-                repr.setTheme({
-                    color: this.reprCtx.colorThemeRegistry.create('polymer-id', { structure: wholeStructure }),
-                    size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: wholeStructure })
-                })
+                if (structure.polymerUnitCount === 1) {
+                    repr.setTheme({
+                        color: this.reprCtx.colorThemeRegistry.create('sequence-id', { structure: wholeStructure }),
+                        size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: wholeStructure })
+                    })
+                } else {
+                    repr.setTheme({
+                        color: this.reprCtx.colorThemeRegistry.create('polymer-id', { structure: wholeStructure }),
+                        size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: wholeStructure })
+                    })
+                }
                 await repr.createOrUpdate({ ... provider.defaultValues, quality: 'auto' }, wholeStructure).run()
 
                 this.canvas3d.add(repr)
@@ -236,10 +249,17 @@ export class RenderAll {
                 }
                 const repr = provider.factory(this.reprCtx, provider.getParams)
 
-                repr.setTheme({
-                    color: this.reprCtx.colorThemeRegistry.create('polymer-id', { structure: structure }),
-                    size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: structure })
-                })
+                if (structure.polymerUnitCount === 1) {
+                    repr.setTheme({
+                        color: this.reprCtx.colorThemeRegistry.create('sequence-id', { structure: structure }),
+                        size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: structure })
+                    })
+                } else {
+                    repr.setTheme({
+                        color: this.reprCtx.colorThemeRegistry.create('polymer-id', { structure: structure }),
+                        size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: structure })
+                    })
+                }
                 await repr.createOrUpdate({ ... provider.defaultValues, quality: 'auto' }, structure).run()
 
                 this.canvas3d.add(repr)

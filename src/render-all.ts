@@ -75,9 +75,11 @@ export class RenderAll {
     canvas3d: Canvas3D
     width: number
     height: number
-    constructor(w: number, h: number) {
+    unitThreshold: number
+    constructor(w: number, h: number, u: number) {
         this.width = w
         this.height = h
+        this.unitThreshold = u
 
         this.gl = createContext(this.width, this.height, {
             alpha: false,
@@ -167,14 +169,15 @@ export class RenderAll {
                 // Add model to canvas
                 let provider: RepresentationProvider<any, any, any>
 
-                if (wholeStructure.polymerUnitCount > 5) {
+                // TODO: add as param
+                if (wholeStructure.polymerUnitCount > this.unitThreshold) {
                     provider = MolecularSurfaceRepresentationProvider
                 } else {
                     provider = CartoonRepresentationProvider
                 }
                 const repr = provider.factory(this.reprCtx, provider.getParams)
 
-                if (structure.polymerUnitCount === 1) {
+                if (wholeStructure.polymerUnitCount === 1) {
                     repr.setTheme({
                         color: this.reprCtx.colorThemeRegistry.create('sequence-id', { structure: wholeStructure }),
                         size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: wholeStructure })
@@ -244,7 +247,7 @@ export class RenderAll {
                 // Add model to canvas
                 let provider: RepresentationProvider<any, any, any>
                 provider = CartoonRepresentationProvider
-                if (structure.polymerUnitCount > 5) {
+                if (structure.polymerUnitCount > this.unitThreshold) {
                     provider = MolecularSurfaceRepresentationProvider
                 }
                 const repr = provider.factory(this.reprCtx, provider.getParams)
@@ -313,20 +316,26 @@ export class RenderAll {
                 const selection = query(new QueryContext(wholeStructure))
                 const structure = StructureSelection.unionStructure(selection)
 
-                if (structure.elementCount > maxSize) {
-                    console.log(`Not rendered because polymer too large: ${structure.elementCount} > ${maxSize}`)
-                    resolve()
-                    return
+                let provider: RepresentationProvider<any, any, any>
+                provider = CartoonRepresentationProvider
+                let repr: Representation<any, any, any>
+                // console.log(structure.polymerResidueCount)
+                if (structure.polymerResidueCount < 5) {
+                    provider = BallAndStickRepresentationProvider
+                    repr = provider.factory(this.reprCtx, provider.getParams)
+                    repr.setTheme({
+                        color: this.reprCtx.colorThemeRegistry.create('element-id', { structure: structure }),
+                        size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: structure })
+                    })
+                } else {
+                    provider = CartoonRepresentationProvider
+                    repr = provider.factory(this.reprCtx, provider.getParams)
+                    repr.setTheme({
+                        color: this.reprCtx.colorThemeRegistry.create('sequence-id', { structure: structure }),
+                        size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: structure })
+                    })
                 }
 
-                const repr = BallAndStickRepresentationProvider.factory(this.reprCtx, BallAndStickRepresentationProvider.getParams)
-                const provider = BallAndStickRepresentationProvider
-
-
-                repr.setTheme({
-                    color: this.reprCtx.colorThemeRegistry.create('element-symbol', { structure }),
-                    size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure })
-                })
                 await repr.createOrUpdate({ ...provider.defaultValues, quality: 'auto' }, structure).run()
 
                 this.canvas3d.add(repr)

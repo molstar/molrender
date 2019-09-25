@@ -28,6 +28,10 @@ modParse.addArgument([ '--height' ], {
     action: 'store',
     help: 'height of image'
 });
+modParse.addArgument([ '--threshold' ], {
+    action: 'store',
+    help: 'threshold for switching representations'
+});
 modParse.addArgument([ 'in' ], {
     action: 'store',
     help: 'input path of cif file'
@@ -49,6 +53,10 @@ asmParse.addArgument([ '--width' ], {
 asmParse.addArgument([ '--height' ], {
     action: 'store',
     help: 'height of image'
+});
+asmParse.addArgument([ '--threshold' ], {
+    action: 'store',
+    help: 'threshold for switching representations'
 });
 asmParse.addArgument([ 'in' ], {
     action: 'store',
@@ -110,6 +118,10 @@ combParse.addArgument([ '--height' ], {
     action: 'store',
     help: 'height of image'
 });
+combParse.addArgument([ '--threshold' ], {
+    action: 'store',
+    help: 'threshold for switching representations'
+});
 
 const allParse = subparsers.addParser('all', {addHelp: true})
 allParse.addArgument([ 'in' ], {
@@ -132,12 +144,17 @@ allParse.addArgument([ '--height' ], {
     action: 'store',
     help: 'height of image'
 });
+allParse.addArgument([ '--threshold' ], {
+    action: 'store',
+    help: 'threshold for switching representations'
+});
 
 const args = parser.parseArgs();
 
 let width = 2048
 let height = 1536
 let max = 250
+let threshold = 5
 
 async function main() {
     if (args.width !== null) {
@@ -149,11 +166,14 @@ async function main() {
     if (args.max !== null) {
         max = args.max
     }
+    if (args.threshold !== null) {
+        threshold = args.threshold
+    }
 
     const id = getID(args.in)
     const folderName = `${id[1]}${id[2]}`
 
-    let renderer = new RenderAll(width, height)
+    let renderer = new RenderAll(width, height, threshold)
     let cif: CifBlock
     let models: readonly Model[]
 

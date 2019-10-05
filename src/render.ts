@@ -16,7 +16,6 @@ import { SizeTheme } from 'molstar/lib/mol-theme/size';
 import { CartoonRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/cartoon';
 import { MolecularSurfaceRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/molecular-surface';
 import { BallAndStickRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/ball-and-stick';
-import { GaussianSurfaceRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/gaussian-surface';
 import { CarbohydrateRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/carbohydrate'
 import { CIF, CifFrame } from 'molstar/lib/mol-io/reader/cif'
 import { trajectoryFromMmCIF } from 'molstar/lib/mol-model-formats/structure/mmcif';
@@ -26,6 +25,15 @@ import { RepresentationProvider, Representation } from 'molstar/lib/mol-repr/rep
 import { compile } from 'molstar/lib/mol-script/runtime/query/compiler';
 import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
 import { StructureSelectionQueries as Q } from 'molstar/lib/mol-plugin/util/structure-selection-helper';
+
+
+/** Notes
+ * change the names of everything so that it can be webpacked
+ * make things cleaner
+ * move try catches to as late as possible ie the main
+ */
+
+
 
 type Nullable<T> = T | null
 
@@ -169,7 +177,6 @@ export class RenderAll {
                 // Add model to canvas
                 let provider: RepresentationProvider<any, any, any>
 
-                // TODO: add as param
                 if (wholeStructure.polymerUnitCount > this.unitThreshold) {
                     provider = MolecularSurfaceRepresentationProvider
                 } else {

@@ -6,7 +6,7 @@
 
 import * as argparse from 'argparse'
 import fs = require('fs')
-import { RenderAll, readCifFile, getModels, getID } from './render-all'
+import { RenderAll, readCifFile, getModels, getID } from './render'
 import { CifFrame, CifBlock } from 'molstar/lib/mol-io/reader/cif';
 import { Model } from 'molstar/lib/mol-model/structure';
 

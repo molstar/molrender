@@ -156,6 +156,16 @@ let height = 1536
 let max = 250
 let threshold = 5
 
+if (!fs.existsSync(args.in)) {
+    console.log(`Input path "${args.in}" does not exist`)
+    process.exit(1)
+}
+
+if (!fs.existsSync(args.out)) {
+    console.log(`Output path "${args.out}" does not exist`)
+    process.exit(1)
+}
+
 async function main() {
     if (args.width !== null) {
         width = args.width
@@ -179,61 +189,81 @@ async function main() {
 
     switch (args.render) {
         case 'all':
-            await renderer.renderList(args.in, args.out, args.list)
-            process.exit()
-            break
+            try {
+                await renderer.renderList(args.in, args.out, args.list)
+                process.exit()
+            } catch (e) {
+                console.log(e)
+                process.exit(1)
+            }
         case 'combined':
-            await renderer.renderComb(args.in, args.out)
-            process.exit()
-            break
+            try {
+                await renderer.renderComb(args.in, args.out)
+                process.exit()
+            } catch (e) {
+                console.log(e)
+                process.exit(1)
+            }
         case 'chain':
-            if (!fs.existsSync(args.out + '/' + folderName)) {
-                fs.mkdirSync(args.out + '/' + folderName)
+            try {
+                if (!fs.existsSync(args.out + '/' + folderName)) {
+                    fs.mkdirSync(args.out + '/' + folderName)
+                }
+
+                if (!fs.existsSync(`${args.out}/${folderName}/${id}`)) {
+                    fs.mkdirSync(`${args.out}/${folderName}/${id}`)
+                }
+
+                args.out += `/${folderName}/${id}/`
+
+                cif = await readCifFile(args.in)
+                models = await getModels(cif as CifFrame)
+                await renderer.renderChn(args.name, max, models, args.out, id)
+                process.exit()
+            } catch (e) {
+                console.log(e)
+                process.exit(1)
             }
-
-            if (!fs.existsSync(`${args.out}/${folderName}/${id}`)) {
-                fs.mkdirSync(`${args.out}/${folderName}/${id}`)
-            }
-
-            args.out += `/${folderName}/${id}/`
-
-            cif = await readCifFile(args.in)
-            models = await getModels(cif as CifFrame)
-            await renderer.renderChn(args.name, max, models, args.out, id)
-            process.exit()
-            break;
         case 'model':
-            if (!fs.existsSync(args.out + '/' + folderName)) {
-                fs.mkdirSync(args.out + '/' + folderName)
+            try {
+                if (!fs.existsSync(args.out + '/' + folderName)) {
+                    fs.mkdirSync(args.out + '/' + folderName)
+                }
+
+                if (!fs.existsSync(`${args.out}/${folderName}/${id}`)) {
+                    fs.mkdirSync(`${args.out}/${folderName}/${id}`)
+                }
+
+                args.out += `/${folderName}/${id}/`
+
+                cif = await readCifFile(args.in)
+                models = await getModels(cif as CifFrame)
+                await renderer.renderMod(args.modIndex, models, args.out, id)
+                process.exit()
+            } catch (e) {
+                console.log(e)
+                process.exit(1)
             }
-
-            if (!fs.existsSync(`${args.out}/${folderName}/${id}`)) {
-                fs.mkdirSync(`${args.out}/${folderName}/${id}`)
-            }
-
-            args.out += `/${folderName}/${id}/`
-
-            cif = await readCifFile(args.in)
-            models = await getModels(cif as CifFrame)
-            await renderer.renderMod(args.modIndex, models, args.out, id)
-            process.exit()
-            break;
         case 'assembly':
-            if (!fs.existsSync(args.out + '/' + folderName)) {
-                fs.mkdirSync(args.out + '/' + folderName)
+            try {
+                if (!fs.existsSync(args.out + '/' + folderName)) {
+                    fs.mkdirSync(args.out + '/' + folderName)
+                }
+
+                if (!fs.existsSync(`${args.out}/${folderName}/${id}`)) {
+                    fs.mkdirSync(`${args.out}/${folderName}/${id}`)
+                }
+
+                args.out += `/${folderName}/${id}/`
+
+                cif = await readCifFile(args.in)
+                models = await getModels(cif as CifFrame)
+                await renderer.renderAsm(args.modIndex, args.asmIndex, models, args.out, id)
+                process.exit()
+            } catch (e) {
+                console.log(e)
+                process.exit(1)
             }
-
-            if (!fs.existsSync(`${args.out}/${folderName}/${id}`)) {
-                fs.mkdirSync(`${args.out}/${folderName}/${id}`)
-            }
-
-            args.out += `/${folderName}/${id}/`
-
-            cif = await readCifFile(args.in)
-            models = await getModels(cif as CifFrame)
-            await renderer.renderAsm(args.modIndex, args.asmIndex, models, args.out, id)
-            process.exit()
-            break;
     }
 }
 

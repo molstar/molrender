@@ -26,25 +26,17 @@ import { compile } from 'molstar/lib/mol-script/runtime/query/compiler';
 import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
 import { StructureSelectionQueries as Q } from 'molstar/lib/mol-plugin/util/structure-selection-helper';
 
-
-/** Notes
- * change the names of everything so that it can be webpacked
- * make things cleaner
- * move try catches to as late as possible (ie the main)
- * move towards build-tsc, dont use make
- */
-
-
-
 type Nullable<T> = T | null
 
+const readFileAsync = util.promisify(fs.readFile);
+
+// Gets the pdb id of file given through inpath
 export function getID(inPath: string) {
     const arr = inPath.split('/')
     return arr[arr.length - 1].split('.')[0]
 }
 
-const readFileAsync = util.promisify(fs.readFile);
-
+// Reads cif file from path
 async function readFile(path: string) {
     if (path.match(/\.bcif$/)) {
         const input = await readFileAsync(path)
@@ -60,16 +52,19 @@ export async function getModels(frame: CifFrame) {
     return await trajectoryFromMmCIF(frame).run();
 }
 
+// Returns parsed data from cif file
 export async function openCif(path: string) {
     const data = await readFile(path);
     return parseCif(data);
 }
 
+// Returns usable data gotten from reading cif file
 export async function readCifFile(path: string) {
     const parsed = await openCif(path);
     return parsed.blocks[0];
 }
 
+// Returns parsed cif file data
 async function parseCif(data: string|Uint8Array) {
     const comp = CIF.parse(data);
     const parsed = await comp.run();
@@ -77,6 +72,7 @@ async function parseCif(data: string|Uint8Array) {
     return parsed.result;
 }
 
+// RenderAll class used to initialize 3dcanvas and other settings
 export class RenderAll {
 
     gl: WebGLRenderingContext
@@ -132,6 +128,7 @@ export class RenderAll {
         return Structure.ofModel(model);
     }
 
+    // Create PNG to output path of the current canvas3d
     async createImage(outPath: string) {
         return new Promise<void>(resolve => {
             setTimeout( async () => {
@@ -146,280 +143,261 @@ export class RenderAll {
         })
     }
 
+    // Creates PNG at path
     async createFile(generatedPng: PNG, outPath: string) {
         return new Promise<void>(resolve => {
             generatedPng.pack().pipe(fs.createWriteStream(outPath)).on('finish', resolve)
         })
     }
 
+    // Renders an assembly
     async renderAsm(modIndex: number, asmIndex: number, models: readonly Model[], outPath: string, id: string) {
         return new Promise<void>(async resolve => {
-            try {
-                const asmName = models[modIndex].symmetry.assemblies[asmIndex].id
-                console.log(`Rendering ${id} model ${models[modIndex].modelNum} assembly ${asmName}...`)
+            const asmName = models[modIndex].symmetry.assemblies[asmIndex].id
+            console.log(`Rendering ${id} model ${models[modIndex].modelNum} assembly ${asmName}...`)
 
-                // Get model structure and assembly structure
-                let structure = await this.getStructure(models[modIndex])
+            // Get model structure and assembly structure
+            let structure = await this.getStructure(models[modIndex])
 
-                let origStructure = await this.getStructure(models[modIndex])
-                const task = StructureSymmetry.buildAssembly(origStructure, models[modIndex].symmetry.assemblies[asmIndex].id)
-                const wholeStructure = await task.run()
+            let origStructure = await this.getStructure(models[modIndex])
+            const task = StructureSymmetry.buildAssembly(origStructure, models[modIndex].symmetry.assemblies[asmIndex].id)
+            const wholeStructure = await task.run()
 
-                // Add carbs to canvas
-                const carbRepr = CarbohydrateRepresentationProvider.factory(this.reprCtx, CarbohydrateRepresentationProvider.getParams)
+            // Add carbs to canvas
+            const carbRepr = CarbohydrateRepresentationProvider.factory(this.reprCtx, CarbohydrateRepresentationProvider.getParams)
 
-                carbRepr.setTheme({
-                    color: this.reprCtx.colorThemeRegistry.create('carbohydrate-symbol', { structure: wholeStructure }),
+            carbRepr.setTheme({
+                color: this.reprCtx.colorThemeRegistry.create('carbohydrate-symbol', { structure: wholeStructure }),
+                size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: wholeStructure })
+            })
+            await carbRepr.createOrUpdate({ ...CarbohydrateRepresentationProvider.defaultValues, quality: 'auto' }, wholeStructure).run()
+            this.canvas3d.add(carbRepr)
+
+            // Add model to canvas
+            let provider: RepresentationProvider<any, any, any>
+
+            if (wholeStructure.polymerUnitCount > this.unitThreshold) {
+                provider = MolecularSurfaceRepresentationProvider
+            } else {
+                provider = CartoonRepresentationProvider
+            }
+            const repr = provider.factory(this.reprCtx, provider.getParams)
+
+            if (wholeStructure.polymerUnitCount === 1) {
+                repr.setTheme({
+                    color: this.reprCtx.colorThemeRegistry.create('sequence-id', { structure: wholeStructure }),
                     size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: wholeStructure })
                 })
-                await carbRepr.createOrUpdate({ ...CarbohydrateRepresentationProvider.defaultValues, quality: 'auto' }, wholeStructure).run()
-                this.canvas3d.add(carbRepr)
-
-                // Add model to canvas
-                let provider: RepresentationProvider<any, any, any>
-
-                if (wholeStructure.polymerUnitCount > this.unitThreshold) {
-                    provider = MolecularSurfaceRepresentationProvider
-                } else {
-                    provider = CartoonRepresentationProvider
-                }
-                const repr = provider.factory(this.reprCtx, provider.getParams)
-
-                if (wholeStructure.polymerUnitCount === 1) {
-                    repr.setTheme({
-                        color: this.reprCtx.colorThemeRegistry.create('sequence-id', { structure: wholeStructure }),
-                        size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: wholeStructure })
-                    })
-                } else {
-                    repr.setTheme({
-                        color: this.reprCtx.colorThemeRegistry.create('polymer-id', { structure: wholeStructure }),
-                        size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: wholeStructure })
-                    })
-                }
-                await repr.createOrUpdate({ ... provider.defaultValues, quality: 'auto' }, wholeStructure).run()
-
-                this.canvas3d.add(repr)
-
-                // Query and add ligands to canvas
-                const expression = MS.struct.modifier.union([
-                    MS.struct.combinator.merge([ Q.ligandPlusConnected, Q.branchedConnectedOnly ])
-                ])
-                const query = compile<StructureSelection>(expression)
-                const selection = query(new QueryContext(wholeStructure))
-                structure = StructureSelection.unionStructure(selection)
-
-                const ligandRepr = BallAndStickRepresentationProvider.factory(this.reprCtx, BallAndStickRepresentationProvider.getParams)
+            } else {
                 repr.setTheme({
-                    color: this.reprCtx.colorThemeRegistry.create('element-symbol', { structure }),
-                    size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure })
+                    color: this.reprCtx.colorThemeRegistry.create('polymer-id', { structure: wholeStructure }),
+                    size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: wholeStructure })
                 })
-                await ligandRepr.createOrUpdate({ ...BallAndStickRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
-                this.canvas3d.add(ligandRepr)
-
-                this.canvas3d.resetCamera()
-
-                // Write png to file
-                let imagePathName = `${outPath}/${id}_model-${models[modIndex].modelNum}-assembly-${asmName}.png`
-                await this.createImage(imagePathName)
-
-                // Finished writing to file and clear canvas
-                console.log('Finished.')
-                this.canvas3d.remove(ligandRepr)
-                this.canvas3d.clear()
-                resolve()
-            } catch (e) {
-                console.error(e)
-                process.exit(1)
             }
+            await repr.createOrUpdate({ ... provider.defaultValues, quality: 'auto' }, wholeStructure).run()
+
+            this.canvas3d.add(repr)
+
+            // Query and add ligands to canvas
+            const expression = MS.struct.modifier.union([
+                MS.struct.combinator.merge([ Q.ligandPlusConnected, Q.branchedConnectedOnly ])
+            ])
+            const query = compile<StructureSelection>(expression)
+            const selection = query(new QueryContext(wholeStructure))
+            structure = StructureSelection.unionStructure(selection)
+
+            const ligandRepr = BallAndStickRepresentationProvider.factory(this.reprCtx, BallAndStickRepresentationProvider.getParams)
+            repr.setTheme({
+                color: this.reprCtx.colorThemeRegistry.create('element-symbol', { structure }),
+                size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure })
+            })
+            await ligandRepr.createOrUpdate({ ...BallAndStickRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
+            this.canvas3d.add(ligandRepr)
+
+            this.canvas3d.resetCamera()
+
+            // Write png to file
+            let imagePathName = `${outPath}/${id}_model-${models[modIndex].modelNum}-assembly-${asmName}.png`
+            await this.createImage(imagePathName)
+
+            // Finished writing to file and clear canvas
+            console.log('Finished.')
+            this.canvas3d.remove(ligandRepr)
+            this.canvas3d.clear()
+            resolve()
         })
     }
 
+    // Renders a model
     async renderMod(modIndex: number, models: readonly Model[], outPath: string, id: string) {
         return new Promise<void>(async resolve => {
-            try {
-                console.log(`Rendering ${id} model ${models[modIndex].modelNum}...`)
+            console.log(`Rendering ${id} model ${models[modIndex].modelNum}...`)
 
-                // Get model structure
-                let structure = await this.getStructure(models[modIndex])
+            // Get model structure
+            let structure = await this.getStructure(models[modIndex])
 
-                // Add carbs to canvas
-                const carbRepr = CarbohydrateRepresentationProvider.factory(this.reprCtx, CarbohydrateRepresentationProvider.getParams)
+            // Add carbs to canvas
+            const carbRepr = CarbohydrateRepresentationProvider.factory(this.reprCtx, CarbohydrateRepresentationProvider.getParams)
 
-                carbRepr.setTheme({
-                    color: this.reprCtx.colorThemeRegistry.create('carbohydrate-symbol', { structure: structure }),
+            carbRepr.setTheme({
+                color: this.reprCtx.colorThemeRegistry.create('carbohydrate-symbol', { structure: structure }),
+                size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: structure })
+            })
+            await carbRepr.createOrUpdate({ ...CarbohydrateRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
+            this.canvas3d.add(carbRepr)
+
+            // Add model to canvas
+            let provider: RepresentationProvider<any, any, any>
+            provider = CartoonRepresentationProvider
+            if (structure.polymerUnitCount > this.unitThreshold) {
+                provider = MolecularSurfaceRepresentationProvider
+            }
+            const repr = provider.factory(this.reprCtx, provider.getParams)
+
+            if (structure.polymerUnitCount === 1) {
+                repr.setTheme({
+                    color: this.reprCtx.colorThemeRegistry.create('sequence-id', { structure: structure }),
                     size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: structure })
                 })
-                await carbRepr.createOrUpdate({ ...CarbohydrateRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
-                this.canvas3d.add(carbRepr)
-
-                // Add model to canvas
-                let provider: RepresentationProvider<any, any, any>
-                provider = CartoonRepresentationProvider
-                if (structure.polymerUnitCount > this.unitThreshold) {
-                    provider = MolecularSurfaceRepresentationProvider
-                }
-                const repr = provider.factory(this.reprCtx, provider.getParams)
-
-                if (structure.polymerUnitCount === 1) {
-                    repr.setTheme({
-                        color: this.reprCtx.colorThemeRegistry.create('sequence-id', { structure: structure }),
-                        size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: structure })
-                    })
-                } else {
-                    repr.setTheme({
-                        color: this.reprCtx.colorThemeRegistry.create('polymer-id', { structure: structure }),
-                        size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: structure })
-                    })
-                }
-                await repr.createOrUpdate({ ... provider.defaultValues, quality: 'auto' }, structure).run()
-
-                this.canvas3d.add(repr)
-
-                // Query and add ligands to canvas
-                const expression = MS.struct.modifier.union([
-                    MS.struct.combinator.merge([ Q.ligandPlusConnected, Q.branchedConnectedOnly ])
-                ])
-                const query = compile<StructureSelection>(expression)
-                const selection = query(new QueryContext(structure))
-                structure = StructureSelection.unionStructure(selection)
-
-                const ligandRepr = BallAndStickRepresentationProvider.factory(this.reprCtx, BallAndStickRepresentationProvider.getParams)
+            } else {
                 repr.setTheme({
-                    color: this.reprCtx.colorThemeRegistry.create('element-symbol', { structure }),
-                    size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure })
+                    color: this.reprCtx.colorThemeRegistry.create('polymer-id', { structure: structure }),
+                    size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: structure })
                 })
-                await ligandRepr.createOrUpdate({ ...BallAndStickRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
-                this.canvas3d.add(ligandRepr)
-
-                this.canvas3d.resetCamera()
-
-                // Write png to file
-                let imagePathName = `${outPath}/${id}_model-${models[modIndex].modelNum}.png`
-                await this.createImage(imagePathName)
-
-                // Finished writing to file and clear canvas
-                console.log('Finished.')
-                this.canvas3d.remove(ligandRepr)
-                this.canvas3d.clear()
-                resolve()
-            } catch (e) {
-                console.error(e)
-                process.exit(1)
             }
+            await repr.createOrUpdate({ ... provider.defaultValues, quality: 'auto' }, structure).run()
+
+            this.canvas3d.add(repr)
+
+            // Query and add ligands to canvas
+            const expression = MS.struct.modifier.union([
+                MS.struct.combinator.merge([ Q.ligandPlusConnected, Q.branchedConnectedOnly ])
+            ])
+            const query = compile<StructureSelection>(expression)
+            const selection = query(new QueryContext(structure))
+            structure = StructureSelection.unionStructure(selection)
+
+            const ligandRepr = BallAndStickRepresentationProvider.factory(this.reprCtx, BallAndStickRepresentationProvider.getParams)
+            repr.setTheme({
+                color: this.reprCtx.colorThemeRegistry.create('element-symbol', { structure }),
+                size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure })
+            })
+            await ligandRepr.createOrUpdate({ ...BallAndStickRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
+            this.canvas3d.add(ligandRepr)
+
+            this.canvas3d.resetCamera()
+
+            // Write png to file
+            let imagePathName = `${outPath}/${id}_model-${models[modIndex].modelNum}.png`
+            await this.createImage(imagePathName)
+
+            // Finished writing to file and clear canvas
+            console.log('Finished.')
+            this.canvas3d.remove(ligandRepr)
+            this.canvas3d.clear()
+            resolve()
         })
 
     }
 
+    // Renders a chain
     async renderChn(chnName: string, maxSize: number, models: readonly Model[], outPath: string, id: string) {
         return new Promise<void>(async resolve => {
-            try {
-                console.log(`Rendering ${id} chain ${chnName}...`)
+            console.log(`Rendering ${id} chain ${chnName}...`)
 
-                let wholeStructure = await this.getStructure(models[0])
+            let wholeStructure = await this.getStructure(models[0])
 
-                const expression = MS.struct.generator.atomGroups({
-                    'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), chnName])
+            const expression = MS.struct.generator.atomGroups({
+                'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), chnName])
+            })
+            const query = compile<StructureSelection>(expression)
+            const selection = query(new QueryContext(wholeStructure))
+            const structure = StructureSelection.unionStructure(selection)
+
+            let provider: RepresentationProvider<any, any, any>
+            provider = CartoonRepresentationProvider
+            let repr: Representation<any, any, any>
+            if (structure.polymerResidueCount < 5) {
+                provider = BallAndStickRepresentationProvider
+                repr = provider.factory(this.reprCtx, provider.getParams)
+                repr.setTheme({
+                    color: this.reprCtx.colorThemeRegistry.create('element-id', { structure: structure }),
+                    size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: structure })
                 })
-                const query = compile<StructureSelection>(expression)
-                const selection = query(new QueryContext(wholeStructure))
-                const structure = StructureSelection.unionStructure(selection)
-
-                let provider: RepresentationProvider<any, any, any>
+            } else {
                 provider = CartoonRepresentationProvider
-                let repr: Representation<any, any, any>
-                if (structure.polymerResidueCount < 5) {
-                    provider = BallAndStickRepresentationProvider
-                    repr = provider.factory(this.reprCtx, provider.getParams)
-                    repr.setTheme({
-                        color: this.reprCtx.colorThemeRegistry.create('element-id', { structure: structure }),
-                        size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: structure })
-                    })
-                } else {
-                    provider = CartoonRepresentationProvider
-                    repr = provider.factory(this.reprCtx, provider.getParams)
-                    repr.setTheme({
-                        color: this.reprCtx.colorThemeRegistry.create('sequence-id', { structure: structure }),
-                        size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: structure })
-                    })
-                }
-
-                await repr.createOrUpdate({ ...provider.defaultValues, quality: 'auto' }, structure).run()
-
-                this.canvas3d.add(repr)
-                this.canvas3d.resetCamera()
-
-                // Write png to file
-                let imagePathName = `${outPath}/${id}_chain-${chnName}.png`
-                await this.createImage(imagePathName)
-
-                // Finished writing to file and clear canvas
-                console.log('Finished.')
-                this.canvas3d.clear()
-                resolve()
-            } catch (e) {
-                console.error(e)
-                process.exit(1)
+                repr = provider.factory(this.reprCtx, provider.getParams)
+                repr.setTheme({
+                    color: this.reprCtx.colorThemeRegistry.create('sequence-id', { structure: structure }),
+                    size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: structure })
+                })
             }
+
+            await repr.createOrUpdate({ ...provider.defaultValues, quality: 'auto' }, structure).run()
+
+            this.canvas3d.add(repr)
+            this.canvas3d.resetCamera()
+
+            // Write png to file
+            let imagePathName = `${outPath}/${id}_chain-${chnName}.png`
+            await this.createImage(imagePathName)
+
+            // Finished writing to file and clear canvas
+            console.log('Finished.')
+            this.canvas3d.clear()
+            resolve()
         })
 
     }
 
+    // Renders all models, assemblies, and chains of a single pdb
     async renderComb(inPath: string, outPath: string) {
-        try {
-            const cif = await readCifFile(inPath)
-            const models = await getModels(cif as CifFrame)
-            const id = getID(inPath)
+        const cif = await readCifFile(inPath)
+        const models = await getModels(cif as CifFrame)
+        const id = getID(inPath)
 
-            const folderName = `${id[1]}${id[2]}`
+        const folderName = `${id[1]}${id[2]}`
 
-            if (!fs.existsSync(outPath + '/' + folderName)) {
-                fs.mkdirSync(outPath + '/' + folderName)
+        if (!fs.existsSync(outPath + '/' + folderName)) {
+            fs.mkdirSync(outPath + '/' + folderName)
+        }
+
+        if (!fs.existsSync(`${outPath}/${folderName}/${id}`)) {
+            fs.mkdirSync(`${outPath}/${folderName}/${id}`)
+        }
+
+        outPath += `/${folderName}/${id}/`
+
+        for (let i = 0; i < models.length; i++) {
+            await this.renderMod(i, models, outPath, id)
+            for (let j = 0; j < models[i].symmetry.assemblies.length; j++) {
+                await this.renderAsm(i, j, models, outPath, id)
             }
+        }
 
-            if (!fs.existsSync(`${outPath}/${folderName}/${id}`)) {
-                fs.mkdirSync(`${outPath}/${folderName}/${id}`)
+        const maxSize = 250
+        const { entities } = models[0]
+        const { label_asym_id, label_entity_id } = models[0].atomicHierarchy.chains
+
+        for (let i = 0, il = label_asym_id.rowCount; i < il; i++) {
+            const eI = entities.getEntityIndex(label_entity_id.value(i))
+            if (entities.data.type.value(eI) !== 'polymer') {
+                continue
             }
-
-            outPath += `/${folderName}/${id}/`
-
-            for (let i = 0; i < models.length; i++) {
-                await this.renderMod(i, models, outPath, id)
-                for (let j = 0; j < models[i].symmetry.assemblies.length; j++) {
-                    await this.renderAsm(i, j, models, outPath, id)
-                }
-            }
-
-            const maxSize = 250
-            const { entities } = models[0]
-            const { label_asym_id, label_entity_id } = models[0].atomicHierarchy.chains
-
-            for (let i = 0, il = label_asym_id.rowCount; i < il; i++) {
-                const eI = entities.getEntityIndex(label_entity_id.value(i))
-                if (entities.data.type.value(eI) !== 'polymer') {
-                    continue
-                }
-                const chnName = label_asym_id.value(i)
-                await this.renderChn(chnName, maxSize, models, outPath, id)
-            }
-         } catch (e) {
-            console.log(e)
-            process.exit(1)
+            const chnName = label_asym_id.value(i)
+            await this.renderChn(chnName, maxSize, models, outPath, id)
         }
     }
 
+    // Renders all pdbs from list and input path dir, or render all pdbs from input path dir if no list given
     async renderList(inPath: string, outPath: string, listPath: Nullable<String>) {
         let list: string[] = []
         if (listPath === null) {
             list = fs.readdirSync(inPath)
         } else {
-            try {
-                let listFile = await readFileAsync(listPath as string)
-                let listCont = listFile.toString()
-                list = listCont.split('\n')
-            } catch (e) {
-                console.log(e)
-                process.exit(1)
-            }
+            let listFile = await readFileAsync(listPath as string)
+            let listCont = listFile.toString()
+            list = listCont.split('\n')
         }
 
         for (let i = 0; i < list.length; i++) {

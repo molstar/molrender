@@ -19,7 +19,7 @@ const subparsers = parser.addSubparsers({
     dest: 'render'
 });
 
-const modParse = subparsers.addParser('mod', {addHelp: true});
+const modParse = subparsers.addParser('model', {addHelp: true});
 modParse.addArgument([ '--width' ], {
     action: 'store',
     help: 'width of image'
@@ -45,7 +45,7 @@ modParse.addArgument([ 'modIndex' ], {
     help: 'model index'
 });
 
-const asmParse = subparsers.addParser('asm', {addHelp: true})
+const asmParse = subparsers.addParser('assembly', {addHelp: true})
 asmParse.addArgument([ '--width' ], {
     action: 'store',
     help: 'width of image'
@@ -75,7 +75,7 @@ asmParse.addArgument([ 'asmIndex' ], {
     help: 'assembly index'
 });
 
-const chnParse = subparsers.addParser('chn', {addHelp: true})
+const chnParse = subparsers.addParser('chain', {addHelp: true})
 chnParse.addArgument([ '--width' ], {
     action: 'store',
     help: 'width of image'
@@ -101,7 +101,7 @@ chnParse.addArgument([ 'name' ], {
     help: 'chain name'
 });
 
-const combParse = subparsers.addParser('comb', {addHelp: true})
+const combParse = subparsers.addParser('combined', {addHelp: true})
 combParse.addArgument([ 'in' ], {
     action: 'store',
     help: 'input path of cif file'
@@ -182,11 +182,11 @@ async function main() {
             await renderer.renderList(args.in, args.out, args.list)
             process.exit()
             break
-        case 'comb':
+        case 'combined':
             await renderer.renderComb(args.in, args.out)
             process.exit()
             break
-        case 'chn':
+        case 'chain':
             if (!fs.existsSync(args.out + '/' + folderName)) {
                 fs.mkdirSync(args.out + '/' + folderName)
             }
@@ -202,7 +202,7 @@ async function main() {
             await renderer.renderChn(args.name, max, models, args.out, id)
             process.exit()
             break;
-        case 'mod':
+        case 'model':
             if (!fs.existsSync(args.out + '/' + folderName)) {
                 fs.mkdirSync(args.out + '/' + folderName)
             }
@@ -218,7 +218,7 @@ async function main() {
             await renderer.renderMod(args.modIndex, models, args.out, id)
             process.exit()
             break;
-        case 'asm':
+        case 'assembly':
             if (!fs.existsSync(args.out + '/' + folderName)) {
                 fs.mkdirSync(args.out + '/' + folderName)
             }

@@ -30,7 +30,8 @@ import { StructureSelectionQueries as Q } from 'molstar/lib/mol-plugin/util/stru
 /** Notes
  * change the names of everything so that it can be webpacked
  * make things cleaner
- * move try catches to as late as possible ie the main
+ * move try catches to as late as possible (ie the main)
+ * move towards build-tsc, dont use make
  */
 
 
@@ -326,7 +327,6 @@ export class RenderAll {
                 let provider: RepresentationProvider<any, any, any>
                 provider = CartoonRepresentationProvider
                 let repr: Representation<any, any, any>
-                // console.log(structure.polymerResidueCount)
                 if (structure.polymerResidueCount < 5) {
                     provider = BallAndStickRepresentationProvider
                     repr = provider.factory(this.reprCtx, provider.getParams)

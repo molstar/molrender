@@ -30,13 +30,19 @@ type Nullable<T> = T | null
 
 const readFileAsync = util.promisify(fs.readFile);
 
-// Gets the pdb id of file given through inpath
+/**
+ * Get the PDB id of file
+ * @param inPath path of file
+ */
 export function getID(inPath: string) {
     const arr = inPath.split('/')
     return arr[arr.length - 1].split('.')[0]
 }
 
-// Reads cif file from path
+/**
+ * Helper method that reads file and returns the data
+ * @param path path to file
+ */
 async function readFile(path: string) {
     if (path.match(/\.bcif$/)) {
         const input = await readFileAsync(path)
@@ -48,23 +54,36 @@ async function readFile(path: string) {
     }
 }
 
+/**
+ * Helper method to get the models from a cif data
+ * @param frame CifFrame data from file
+ */
 export async function getModels(frame: CifFrame) {
     return await trajectoryFromMmCIF(frame).run();
 }
 
-// Returns parsed data from cif file
+/**
+ * Helper method to open cif file
+ * @param path path to file
+ */
 export async function openCif(path: string) {
     const data = await readFile(path);
     return parseCif(data);
 }
 
-// Returns usable data gotten from reading cif file
+/**
+ * Reads cif file and returns the parsed data
+ * @param path path to file
+ */
 export async function readCifFile(path: string) {
     const parsed = await openCif(path);
     return parsed.blocks[0];
 }
 
-// Returns parsed cif file data
+/**
+ * Helper method to parse cif data
+ * @param data string of cif data
+ */
 async function parseCif(data: string|Uint8Array) {
     const comp = CIF.parse(data);
     const parsed = await comp.run();
@@ -72,8 +91,10 @@ async function parseCif(data: string|Uint8Array) {
     return parsed.result;
 }
 
-// RenderAll class used to initialize 3dcanvas and other settings
-export class RenderAll {
+/**
+ * ImageRenderer class used to initialize 3dcanvas for rendering
+ */
+export class ImageRenderer {
 
     gl: WebGLRenderingContext
     reprCtx: {wegbl: any, colorThemeRegistry: any, sizeThemeRegistry: any}
@@ -90,7 +111,8 @@ export class RenderAll {
             alpha: false,
             antialias: true,
             depth: true,
-            preserveDrawingBuffer: true
+            preserveDrawingBuffer: true,
+            premultipliedAlpha: false
         })
         const input = InputObserver.create()
         this.canvas3d = Canvas3D.create(this.gl, input, {
@@ -351,7 +373,7 @@ export class RenderAll {
     }
 
     // Renders all models, assemblies, and chains of a single pdb
-    async renderComb(inPath: string, outPath: string) {
+    async renderCombined(inPath: string, outPath: string) {
         const cif = await readCifFile(inPath)
         const models = await getModels(cif as CifFrame)
         const id = getID(inPath)
@@ -413,7 +435,7 @@ export class RenderAll {
                 continue;
             }
             let path = `${inPath}/${fileName}.cif`
-            await this.renderComb(path, outPath)
+            await this.renderCombined(path, outPath)
         }
     }
 

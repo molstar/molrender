@@ -1,0 +1,33 @@
+{
+  "dir": "/images/",
+  "content": [
+    {
+      "dir": "/cr/",
+      "pdbs": [
+        {
+          "dir": "/1crn/",
+          "id": "1crn",
+          "chains": [
+            {
+              "name": "A",
+              "image": "/1crn_chain_A.png"
+            }
+          ],
+          "models": [
+            {
+              "model": 1,
+              "image": "/1crn_model_1.png"
+            }
+          ],
+          "assemblies": [
+            {
+              "model": 1,
+              "assembly": 1,
+              "image": "/1crn_model_1_assembly_1.png"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

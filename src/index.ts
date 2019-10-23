@@ -6,9 +6,22 @@
 
 import * as argparse from 'argparse'
 import fs = require('fs')
-import { RenderAll, readCifFile, getModels, getID } from './render'
+import { ImageRenderer, readCifFile, getModels, getID } from './render'
 import { CifFrame, CifBlock } from 'molstar/lib/mol-io/reader/cif';
 import { Model } from 'molstar/lib/mol-model/structure';
+
+enum Style {
+    toon = 'toon',
+    matte = 'matte',
+    glossy = 'glossy',
+    metallic = 'metallic'
+}
+
+enum Background {
+    white = 'white',
+    black = 'black',
+    transparent = 'transparent'
+}
 
 const parser = new argparse.ArgumentParser({
     addHelp: true,
@@ -18,54 +31,53 @@ const subparsers = parser.addSubparsers({
     title: 'subcommands',
     dest: 'render'
 });
+subparsers
+function addBasicArgs(currParser: argparse.ArgumentParser, isDir: boolean) {
+    let inHelp = 'path of cif file'
+    if (isDir) {
+        inHelp = 'directory of all cif files'
+    }
+    currParser.addArgument([ 'in' ], {
+        action: 'store',
+        help: inHelp
+    })
+    currParser.addArgument([ 'out' ], {
+        action: 'store',
+        help: 'output path of png files (not including file name)'
+    });
+    currParser.addArgument([ '--width' ], {
+        action: 'store',
+        help: 'width of image'
+    });
+    currParser.addArgument([ '--height' ], {
+        action: 'store',
+        help: 'height of image'
+    });
+    currParser.addArgument([ '--threshold' ], {
+        action: 'store',
+        help: 'threshold for switching representations'
+    });
+    currParser.addArgument([ '--style' ], {
+        action: 'store',
+        choices: ['toon', 'matte', 'glossy', 'metallic'],
+        help: 'style of render (toon, matte, glossy, or metallic)'
+    })
+    currParser.addArgument([ '--background' ], {
+        action: 'store',
+        choices: ['white', 'black', 'transparent'],
+        help: 'background of render image (white, black, or transparent)'
+    })
+}
 
 const modParse = subparsers.addParser('model', {addHelp: true});
-modParse.addArgument([ '--width' ], {
-    action: 'store',
-    help: 'width of image'
-});
-modParse.addArgument([ '--height' ], {
-    action: 'store',
-    help: 'height of image'
-});
-modParse.addArgument([ '--threshold' ], {
-    action: 'store',
-    help: 'threshold for switching representations'
-});
-modParse.addArgument([ 'in' ], {
-    action: 'store',
-    help: 'input path of cif file'
-});
-modParse.addArgument([ 'out' ], {
-    action: 'store',
-    help: 'output path of png files (not including file name)'
-});
+addBasicArgs(modParse, false)
 modParse.addArgument([ 'modIndex' ], {
     action: 'store',
     help: 'model index'
 });
 
 const asmParse = subparsers.addParser('assembly', {addHelp: true})
-asmParse.addArgument([ '--width' ], {
-    action: 'store',
-    help: 'width of image'
-});
-asmParse.addArgument([ '--height' ], {
-    action: 'store',
-    help: 'height of image'
-});
-asmParse.addArgument([ '--threshold' ], {
-    action: 'store',
-    help: 'threshold for switching representations'
-});
-asmParse.addArgument([ 'in' ], {
-    action: 'store',
-    help: 'input path of cif file'
-});
-asmParse.addArgument([ 'out' ], {
-    action: 'store',
-    help: 'output path of png files (not including file name)'
-});
+addBasicArgs(asmParse, false)
 asmParse.addArgument([ 'modIndex' ], {
     action: 'store',
     help: 'model index'
@@ -76,77 +88,20 @@ asmParse.addArgument([ 'asmIndex' ], {
 });
 
 const chnParse = subparsers.addParser('chain', {addHelp: true})
-chnParse.addArgument([ '--width' ], {
-    action: 'store',
-    help: 'width of image'
-});
-chnParse.addArgument([ '--height' ], {
-    action: 'store',
-    help: 'height of image'
-});
-chnParse.addArgument([ '--max' ], {
-    action: 'store',
-    help: 'max size of chain'
-});
-chnParse.addArgument([ 'in' ], {
-    action: 'store',
-    help: 'input path of cif file'
-});
-chnParse.addArgument([ 'out' ], {
-    action: 'store',
-    help: 'output path of png files (not including file name)'
-});
+addBasicArgs(chnParse, false)
 chnParse.addArgument([ 'name' ], {
     action: 'store',
     help: 'chain name'
 });
 
 const combParse = subparsers.addParser('combined', {addHelp: true})
-combParse.addArgument([ 'in' ], {
-    action: 'store',
-    help: 'input path of cif file'
-})
-combParse.addArgument([ 'out' ], {
-    action: 'store',
-    help: 'output path of png files (not including file name)'
-});
-combParse.addArgument([ '--width' ], {
-    action: 'store',
-    help: 'width of image'
-});
-combParse.addArgument([ '--height' ], {
-    action: 'store',
-    help: 'height of image'
-});
-combParse.addArgument([ '--threshold' ], {
-    action: 'store',
-    help: 'threshold for switching representations'
-});
+addBasicArgs(combParse, false)
 
 const allParse = subparsers.addParser('all', {addHelp: true})
-allParse.addArgument([ 'in' ], {
-    action: 'store',
-    help: 'directory containing cifs to be rendered'
-});
-allParse.addArgument([ 'out' ], {
-    action: 'store',
-    help: 'output path of png files (not including file name)'
-});
+addBasicArgs(allParse, true)
 allParse.addArgument([ '--list' ], {
     action: 'store',
     help: 'path of file containing pdb IDs'
-});
-allParse.addArgument([ '--width' ], {
-    action: 'store',
-    help: 'width of image'
-});
-allParse.addArgument([ '--height' ], {
-    action: 'store',
-    help: 'height of image'
-});
-allParse.addArgument([ '--threshold' ], {
-    action: 'store',
-    help: 'threshold for switching representations'
 });
 
 const args = parser.parseArgs();
@@ -155,35 +110,43 @@ let width = 2048
 let height = 1536
 let max = 250
 let threshold = 5
+let style = 0
+let background = 0
 
 if (!fs.existsSync(args.in)) {
-    console.log(`Input path "${args.in}" does not exist`)
+    console.error(`Input path "${args.in}" does not exist`)
     process.exit(1)
 }
 
 if (!fs.existsSync(args.out)) {
-    console.log(`Output path "${args.out}" does not exist`)
+    console.error(`Output path "${args.out}" does not exist`)
     process.exit(1)
 }
 
 async function main() {
-    if (args.width !== null) {
+    if (args.width !== undefined) {
         width = args.width
     }
-    if (args.height !== null) {
+    if (args.height !== undefined) {
         height = args.height
     }
-    if (args.max !== null) {
+    if (args.max !== undefined) {
         max = args.max
     }
-    if (args.threshold !== null) {
+    if (args.threshold !== undefined) {
         threshold = args.threshold
+    }
+    if (args.style !== undefined) {
+        style = Style[args.style as string]
+    }
+    if (args.background !== undefined) {
+        background = Background[args.background]
     }
 
     const id = getID(args.in)
     const folderName = `${id[1]}${id[2]}`
 
-    let renderer = new RenderAll(width, height, threshold)
+    let renderer = new ImageRenderer(width, height, threshold)
     let cif: CifBlock
     let models: readonly Model[]
 
@@ -193,15 +156,15 @@ async function main() {
                 await renderer.renderList(args.in, args.out, args.list)
                 process.exit()
             } catch (e) {
-                console.log(e)
+                console.error(e)
                 process.exit(1)
             }
         case 'combined':
             try {
-                await renderer.renderComb(args.in, args.out)
+                await renderer.renderCombined(args.in, args.out)
                 process.exit()
             } catch (e) {
-                console.log(e)
+                console.error(e)
                 process.exit(1)
             }
         case 'chain':
@@ -221,7 +184,7 @@ async function main() {
                 await renderer.renderChn(args.name, max, models, args.out, id)
                 process.exit()
             } catch (e) {
-                console.log(e)
+                console.error(e)
                 process.exit(1)
             }
         case 'model':
@@ -241,7 +204,7 @@ async function main() {
                 await renderer.renderMod(args.modIndex, models, args.out, id)
                 process.exit()
             } catch (e) {
-                console.log(e)
+                console.error(e)
                 process.exit(1)
             }
         case 'assembly':
@@ -261,7 +224,7 @@ async function main() {
                 await renderer.renderAsm(args.modIndex, args.asmIndex, models, args.out, id)
                 process.exit()
             } catch (e) {
-                console.log(e)
+                console.error(e)
                 process.exit(1)
             }
     }

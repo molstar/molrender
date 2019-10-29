@@ -10,19 +10,6 @@ import { ImageRenderer, readCifFile, getModels, getID } from './render'
 import { CifFrame, CifBlock } from 'molstar/lib/mol-io/reader/cif';
 import { Model } from 'molstar/lib/mol-model/structure';
 
-enum Style {
-    toon = 'toon',
-    matte = 'matte',
-    glossy = 'glossy',
-    metallic = 'metallic'
-}
-
-enum Background {
-    white = 'white',
-    black = 'black',
-    transparent = 'transparent'
-}
-
 const parser = new argparse.ArgumentParser({
     addHelp: true,
     description: 'Render all models and assemblies of a PDB ID'
@@ -108,7 +95,6 @@ const args = parser.parseArgs();
 
 let width = 2048
 let height = 1536
-let max = 250
 let threshold = 5
 let style = 0
 let background = 0
@@ -130,23 +116,49 @@ async function main() {
     if (args.height !== undefined) {
         height = args.height
     }
-    if (args.max !== undefined) {
-        max = args.max
-    }
     if (args.threshold !== undefined) {
         threshold = args.threshold
     }
-    if (args.style !== undefined) {
-        style = Style[args.style as string]
+    if (args.style !== null) {
+        switch (args.style) {
+            case 'toon':
+                style = 0;
+                break;
+            case 'matte':
+                style = 1;
+                break;
+            case 'glossy':
+                style = 2;
+                break;
+            case 'metallic':
+                style = 3;
+                break;
+            default:
+                console.error(`Error: "${args.style}" is not a valid style`);
+                process.exit(1);
+        }
     }
-    if (args.background !== undefined) {
-        background = Background[args.background]
+    if (args.background !== null) {
+        switch (args.background) {
+            case 'white':
+                background = 0;
+                break;
+            case 'black':
+                background = 1;
+                break;
+            case 'transparent':
+                background = 2;
+                break;
+            default:
+                console.error(`Error: "${args.background}" is not a valid background`);
+                process.exit(1);
+        }
     }
 
     const id = getID(args.in)
     const folderName = `${id[1]}${id[2]}`
 
-    let renderer = new ImageRenderer(width, height, threshold)
+    let renderer = new ImageRenderer(width, height, threshold, style, background)
     let cif: CifBlock
     let models: readonly Model[]
 
@@ -181,7 +193,7 @@ async function main() {
 
                 cif = await readCifFile(args.in)
                 models = await getModels(cif as CifFrame)
-                await renderer.renderChn(args.name, max, models, args.out, id)
+                await renderer.renderChn(args.name, models, args.out, id)
                 process.exit()
             } catch (e) {
                 console.error(e)

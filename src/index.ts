@@ -110,13 +110,13 @@ if (!fs.existsSync(args.out)) {
 }
 
 async function main() {
-    if (args.width !== undefined) {
+    if (args.width !== null) {
         width = args.width
     }
-    if (args.height !== undefined) {
+    if (args.height !== null) {
         height = args.height
     }
-    if (args.threshold !== undefined) {
+    if (args.threshold !== null) {
         threshold = args.threshold
     }
     if (args.style !== null) {
@@ -156,31 +156,22 @@ async function main() {
     }
 
     const id = getID(args.in)
-    const folderName = `${id[1]}${id[2]}`
+    const folderName = `${id[1]}${id[2]}`;
 
-    let renderer = new ImageRenderer(width, height, threshold, style, background)
-    let cif: CifBlock
-    let models: readonly Model[]
 
-    switch (args.render) {
-        case 'all':
-            try {
-                await renderer.renderList(args.in, args.out, args.list)
+    (async () => {
+        let renderer = new ImageRenderer(width, height, threshold, style, background)
+        let cif: CifBlock
+        let models: readonly Model[]
+
+        switch (args.render) {
+            case 'all':
+                await renderer.renderList(args.in, args.out, args.list).catch(() => {process.exit(1)})
                 process.exit()
-            } catch (e) {
-                console.error(e)
-                process.exit(1)
-            }
-        case 'combined':
-            try {
-                await renderer.renderCombined(args.in, args.out)
+            case 'combined':
+                await renderer.renderCombined(args.in, args.out).catch(() => {process.exit(1)})
                 process.exit()
-            } catch (e) {
-                console.error(e)
-                process.exit(1)
-            }
-        case 'chain':
-            try {
+            case 'chain':
                 if (!fs.existsSync(args.out + '/' + folderName)) {
                     fs.mkdirSync(args.out + '/' + folderName)
                 }
@@ -193,14 +184,9 @@ async function main() {
 
                 cif = await readCifFile(args.in)
                 models = await getModels(cif as CifFrame)
-                await renderer.renderChn(args.name, models, args.out, id)
+                await renderer.renderChn(args.name, models, args.out, id).catch(() => {process.exit(1)})
                 process.exit()
-            } catch (e) {
-                console.error(e)
-                process.exit(1)
-            }
-        case 'model':
-            try {
+            case 'model':
                 if (!fs.existsSync(args.out + '/' + folderName)) {
                     fs.mkdirSync(args.out + '/' + folderName)
                 }
@@ -213,14 +199,9 @@ async function main() {
 
                 cif = await readCifFile(args.in)
                 models = await getModels(cif as CifFrame)
-                await renderer.renderMod(args.modIndex, models, args.out, id)
+                await renderer.renderMod(args.modIndex, models, args.out, id).catch(() => {process.exit(1)})
                 process.exit()
-            } catch (e) {
-                console.error(e)
-                process.exit(1)
-            }
-        case 'assembly':
-            try {
+            case 'assembly':
                 if (!fs.existsSync(args.out + '/' + folderName)) {
                     fs.mkdirSync(args.out + '/' + folderName)
                 }
@@ -233,13 +214,15 @@ async function main() {
 
                 cif = await readCifFile(args.in)
                 models = await getModels(cif as CifFrame)
-                await renderer.renderAsm(args.modIndex, args.asmIndex, models, args.out, id)
+                await renderer.renderAsm(args.modIndex, args.asmIndex, models, args.out, id).catch(() => {process.exit(1)})
                 process.exit()
-            } catch (e) {
-                console.error(e)
-                process.exit(1)
-            }
-    }
+
+        }
+    })().catch((error) => {
+        console.error(error)
+        process.exit(1)
+    })
+
 }
 
 main()

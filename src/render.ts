@@ -27,10 +27,6 @@ import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder'
 import { StructureSelectionQueries as Q } from 'molstar/lib/mol-plugin/util/structure-selection-helper';
 import { ImagePass } from 'molstar/lib/mol-canvas3d/passes/image';
 
-function sleep(milliseconds: number) {
-    return new Promise(resolve => setTimeout(resolve, milliseconds))
-}
-
 type Nullable<T> = T | null
 
 const readFileAsync = util.promisify(fs.readFile);
@@ -234,7 +230,7 @@ export class ImageRenderer {
                 size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: wholeStructure })
             })
             await carbRepr.createOrUpdate({ ...CarbohydrateRepresentationProvider.defaultValues, quality: 'auto' }, wholeStructure).run()
-            this.canvas3d.add(carbRepr)
+            await this.canvas3d.add(carbRepr)
 
             // Add model to canvas
             let provider: RepresentationProvider<any, any, any>
@@ -259,7 +255,7 @@ export class ImageRenderer {
             }
             await repr.createOrUpdate({ ... provider.defaultValues, quality: 'auto' }, wholeStructure).run()
 
-            this.canvas3d.add(repr)
+            await this.canvas3d.add(repr)
 
             // Query and add ligands to canvas
             const expression = MS.struct.modifier.union([
@@ -275,7 +271,7 @@ export class ImageRenderer {
                 size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: ligandStructure })
             })
             await ligandRepr.createOrUpdate({ ...BallAndStickRepresentationProvider.defaultValues, quality: 'auto' }, ligandStructure).run()
-            this.canvas3d.add(ligandRepr)
+            await this.canvas3d.add(ligandRepr)
 
             this.focusCamera(wholeStructure)
 
@@ -313,7 +309,7 @@ export class ImageRenderer {
                 size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: structure })
             })
             await carbRepr.createOrUpdate({ ...CarbohydrateRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
-            this.canvas3d.add(carbRepr)
+            await this.canvas3d.add(carbRepr)
 
             // Add model to canvas
             let provider: RepresentationProvider<any, any, any>
@@ -336,7 +332,7 @@ export class ImageRenderer {
             }
             await repr.createOrUpdate({ ... provider.defaultValues, quality: 'auto' }, structure).run()
 
-            this.canvas3d.add(repr)
+            await this.canvas3d.add(repr)
 
             // Query and add ligands to canvas
             const expression = MS.struct.modifier.union([
@@ -352,7 +348,7 @@ export class ImageRenderer {
                 size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: ligandStructure })
             })
             await ligandRepr.createOrUpdate({ ...BallAndStickRepresentationProvider.defaultValues, quality: 'auto' }, ligandStructure).run()
-            this.canvas3d.add(ligandRepr)
+            await this.canvas3d.add(ligandRepr)
 
             this.focusCamera(structure)
 
@@ -407,8 +403,7 @@ export class ImageRenderer {
 
             await repr.createOrUpdate({ ...provider.defaultValues, quality: 'auto' }, structure).run()
 
-            this.canvas3d.add(repr)
-            await sleep(100)
+            await this.canvas3d.add(repr)
 
             console.log(structure.elementCount)
             this.focusCamera(structure)
@@ -457,12 +452,10 @@ export class ImageRenderer {
         const { entities } = models[0]
         const { label_asym_id, label_entity_id } = models[0].atomicHierarchy.chains
 
-        // Render all chains
+        // Render all polymer chains
         for (let i = 0, il = label_asym_id.rowCount; i < il; i++) {
             const eI = entities.getEntityIndex(label_entity_id.value(i))
-            if (entities.data.type.value(eI) !== 'polymer') {
-                continue
-            }
+            if (entities.data.type.value(eI) !== 'polymer') continue
             const chnName = label_asym_id.value(i)
             await this.renderChn(chnName, models, outPath, id)
         }

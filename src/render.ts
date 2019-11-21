@@ -25,6 +25,11 @@ import { RepresentationProvider, Representation } from 'molstar/lib/mol-repr/rep
 import { compile } from 'molstar/lib/mol-script/runtime/query/compiler';
 import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
 import { StructureSelectionQueries as Q } from 'molstar/lib/mol-plugin/util/structure-selection-helper';
+import { ImagePass } from 'molstar/lib/mol-canvas3d/passes/image';
+
+function sleep(milliseconds: number) {
+    return new Promise(resolve => setTimeout(resolve, milliseconds))
+}
 
 type Nullable<T> = T | null
 
@@ -55,9 +60,7 @@ export function getID(inPath: string) {
 async function readFile(path: string) {
     if (path.match(/\.bcif$/)) {
         const input = await readFileAsync(path)
-        const data = new Uint8Array(input.byteLength);
-        for (let i = 0; i < input.byteLength; i++) data[i] = input[i];
-        return data;
+        return new Uint8Array(input);
     } else {
         return readFileAsync(path, 'utf8');
     }
@@ -95,9 +98,22 @@ export async function readCifFile(path: string) {
  */
 async function parseCif(data: string|Uint8Array) {
     const comp = CIF.parse(data);
+    console.time('parseCif')
     const parsed = await comp.run();
+    console.timeEnd('parseCif')
     if (parsed.isError) throw parsed;
     return parsed.result;
+}
+
+/**
+ * Helper method to create PNG with given PNG data
+ * @param generatedPng PNG data
+ * @param outPath path to put created PNG
+ */
+async function createPngFile(png: PNG, outPath: string) {
+    return new Promise<void>(resolve => {
+        png.pack().pipe(fs.createWriteStream(outPath)).on('finish', resolve)
+    })
 }
 
 /**
@@ -108,10 +124,13 @@ export class ImageRenderer {
     gl: WebGLRenderingContext
     reprCtx: {wegbl: any, colorThemeRegistry: any, sizeThemeRegistry: any}
     canvas3d: Canvas3D
+    imagePass: ImagePass
     width: number
     height: number
     unitThreshold: number
+
     constructor(w: number, h: number, u: number, style: number, bg: number) {
+        console.time('ImageRenderer.constructor')
         this.width = w
         this.height = h
         this.unitThreshold = u
@@ -145,17 +164,22 @@ export class ImageRenderer {
             },
             trackball: {
                 ...Canvas3DParams.trackball.defaultValue,
-
             }
         })
-        this.canvas3d.animate()
+
+        this.imagePass = this.canvas3d.getImagePass()
+        this.imagePass.setProps({
+            multiSample: { mode: 'on', sampleLevel: 2 },
+            postprocessing: this.canvas3d.props.postprocessing
+        })
+        this.imagePass.setSize(this.width, this.height)
 
         this.reprCtx = {
             wegbl: this.canvas3d.webgl,
             colorThemeRegistry: ColorTheme.createRegistry(),
             sizeThemeRegistry: SizeTheme.createRegistry()
         }
-
+        console.timeEnd('ImageRenderer.constructor')
     }
 
 
@@ -172,28 +196,17 @@ export class ImageRenderer {
      * @param outPath path to put created PNG
      */
     async createImage(outPath: string) {
-        return new Promise<void>(resolve => {
-            setTimeout( async () => {
-                const pixelData = this.canvas3d.getPixelData('color')
-                const options: PNGOptions = {width: this.width, height: this.height}
-                const generatedPng = new PNG(options)
-                generatedPng.data = Buffer.from(pixelData.array)
-                this.createFile(generatedPng, outPath).then(() => {
-                    resolve()
-                })
-            }, 50)
-        })
+        this.imagePass.render()
+        const imageData = this.imagePass.colorTarget.getPixelData()
+        const options: PNGOptions = {width: this.width, height: this.height}
+        const generatedPng = new PNG(options)
+        generatedPng.data = Buffer.from(imageData.array)
+        await createPngFile(generatedPng, outPath)
     }
 
-    /**
-     * Helper method to create PNG with given PNG data
-     * @param generatedPng PNG data
-     * @param outPath path to put created PNG
-     */
-    async createFile(generatedPng: PNG, outPath: string) {
-        return new Promise<void>(resolve => {
-            generatedPng.pack().pipe(fs.createWriteStream(outPath)).on('finish', resolve)
-        })
+    focusCamera(structure: Structure) {
+        const { center, radius } = structure.boundary.sphere
+        this.canvas3d.camera.focus(center, radius, 0)
     }
 
     /**
@@ -209,10 +222,7 @@ export class ImageRenderer {
             const asmName = models[modIndex].symmetry.assemblies[asmIndex].id
             console.log(`Rendering ${id} model ${models[modIndex].modelNum} assembly ${asmName}...`)
 
-            // Get model structure and assembly structure
-            let structure = await this.getStructure(models[modIndex])
-
-            let origStructure = await this.getStructure(models[modIndex])
+            const origStructure = await this.getStructure(models[modIndex])
             const task = StructureSymmetry.buildAssembly(origStructure, models[modIndex].symmetry.assemblies[asmIndex].id)
             const wholeStructure = await task.run()
 
@@ -257,17 +267,17 @@ export class ImageRenderer {
             ])
             const query = compile<StructureSelection>(expression)
             const selection = query(new QueryContext(wholeStructure))
-            structure = StructureSelection.unionStructure(selection)
+            const ligandStructure = StructureSelection.unionStructure(selection)
 
             const ligandRepr = BallAndStickRepresentationProvider.factory(this.reprCtx, BallAndStickRepresentationProvider.getParams)
             repr.setTheme({
-                color: this.reprCtx.colorThemeRegistry.create('element-symbol', { structure }),
-                size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure })
+                color: this.reprCtx.colorThemeRegistry.create('element-symbol', { structure: ligandStructure }),
+                size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: ligandStructure })
             })
-            await ligandRepr.createOrUpdate({ ...BallAndStickRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
+            await ligandRepr.createOrUpdate({ ...BallAndStickRepresentationProvider.defaultValues, quality: 'auto' }, ligandStructure).run()
             this.canvas3d.add(ligandRepr)
 
-            this.canvas3d.resetCamera()
+            this.focusCamera(wholeStructure)
 
             // Write png to file
             let imagePathName = `${outPath}/${id}_model-${models[modIndex].modelNum}-assembly-${asmName}.png`
@@ -275,7 +285,7 @@ export class ImageRenderer {
 
             // Finished writing to file and clear canvas
             console.log('Finished.')
-            this.canvas3d.remove(ligandRepr)
+
             this.canvas3d.clear()
             resolve()
         })
@@ -293,7 +303,7 @@ export class ImageRenderer {
             console.log(`Rendering ${id} model ${models[modIndex].modelNum}...`)
 
             // Get model structure
-            let structure = await this.getStructure(models[modIndex])
+            const structure = await this.getStructure(models[modIndex])
 
             // Add carbs to canvas
             const carbRepr = CarbohydrateRepresentationProvider.factory(this.reprCtx, CarbohydrateRepresentationProvider.getParams)
@@ -334,17 +344,17 @@ export class ImageRenderer {
             ])
             const query = compile<StructureSelection>(expression)
             const selection = query(new QueryContext(structure))
-            structure = StructureSelection.unionStructure(selection)
+            const ligandStructure = StructureSelection.unionStructure(selection)
 
             const ligandRepr = BallAndStickRepresentationProvider.factory(this.reprCtx, BallAndStickRepresentationProvider.getParams)
             repr.setTheme({
-                color: this.reprCtx.colorThemeRegistry.create('element-symbol', { structure }),
-                size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure })
+                color: this.reprCtx.colorThemeRegistry.create('element-symbol', { structure: ligandStructure }),
+                size: this.reprCtx.sizeThemeRegistry.create('uniform', { structure: ligandStructure })
             })
-            await ligandRepr.createOrUpdate({ ...BallAndStickRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
+            await ligandRepr.createOrUpdate({ ...BallAndStickRepresentationProvider.defaultValues, quality: 'auto' }, ligandStructure).run()
             this.canvas3d.add(ligandRepr)
 
-            this.canvas3d.resetCamera()
+            this.focusCamera(structure)
 
             // Write png to file
             let imagePathName = `${outPath}/${id}_model-${models[modIndex].modelNum}.png`
@@ -352,10 +362,9 @@ export class ImageRenderer {
 
             // Finished writing to file and clear canvas
             console.log('Finished.')
-            this.canvas3d.remove(ligandRepr)
             this.canvas3d.clear()
             resolve()
-        }).catch(()=>{console.error('what')})
+        })
     }
 
     /**
@@ -369,7 +378,7 @@ export class ImageRenderer {
         return new Promise<void>(async resolve => {
             console.log(`Rendering ${id} chain ${chnName}...`)
 
-            let wholeStructure = await this.getStructure(models[0])
+            const wholeStructure = await this.getStructure(models[0])
 
             const expression = MS.struct.generator.atomGroups({
                 'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), chnName])
@@ -379,7 +388,6 @@ export class ImageRenderer {
             const structure = StructureSelection.unionStructure(selection)
 
             let provider: RepresentationProvider<any, any, any>
-            provider = CartoonRepresentationProvider
             let repr: Representation<any, any, any>
             if (structure.polymerResidueCount < 5) {
                 provider = BallAndStickRepresentationProvider
@@ -400,7 +408,10 @@ export class ImageRenderer {
             await repr.createOrUpdate({ ...provider.defaultValues, quality: 'auto' }, structure).run()
 
             this.canvas3d.add(repr)
-            this.canvas3d.resetCamera()
+            await sleep(100)
+
+            console.log(structure.elementCount)
+            this.focusCamera(structure)
 
             // Write png to file
             let imagePathName = `${outPath}/${id}_chain-${chnName}.png`

@@ -1,134 +1,228 @@
 /**
  * Copyright (c) 2019 mol* contributors, licensed under MIT, See LICENSE file for more info.
  *
- * @author Alexander Rose <alexander.rose@weirdbyte.de>
+ * @author Jesse Liang <jesse.liang@rcsb.org>
  */
 
 import * as argparse from 'argparse'
-import createContext = require('gl')
 import fs = require('fs')
-import { PNG } from 'pngjs'
-import { Canvas3D, Canvas3DParams } from 'molstar/lib/mol-canvas3d/canvas3d';
-import InputObserver from 'molstar/lib/mol-util/input/input-observer';
-import { ColorTheme } from 'molstar/lib/mol-theme/color';
-import { SizeTheme } from 'molstar/lib/mol-theme/size';
-import { CartoonRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/cartoon';
-import { CIF, CifFrame } from 'molstar/lib/mol-io/reader/cif'
-import { trajectoryFromMmCIF } from 'molstar/lib/mol-model-formats/structure/mmcif';
-import { Model, Structure } from 'molstar/lib/mol-model/structure';
-import { ajaxGet } from 'molstar/lib/mol-util/data-source';
-import { ColorNames } from 'molstar/lib/mol-util/color/tables';
-
-const width = 2048
-const height = 1536
-const gl = createContext(width, height, {
-    alpha: false,
-    antialias: true,
-    depth: true,
-    preserveDrawingBuffer: true
-})
-
-const input = InputObserver.create()
-const canvas3d = Canvas3D.create(gl, input, {
-    multiSample: {
-        mode: 'on',
-        sampleLevel: 3
-    },
-    renderer: {
-        ...Canvas3DParams.renderer.defaultValue,
-        lightIntensity: 0,
-        ambientIntensity: 1,
-        backgroundColor: ColorNames.white
-    },
-    postprocessing: {
-        ...Canvas3DParams.postprocessing.defaultValue,
-        occlusionEnable: true,
-        outlineEnable: true
-    }
-})
-canvas3d.animate()
-
-const reprCtx = {
-    wegbl: canvas3d.webgl,
-    colorThemeRegistry: ColorTheme.createRegistry(),
-    sizeThemeRegistry: SizeTheme.createRegistry()
-}
-function getCartoonRepr() {
-    return CartoonRepresentationProvider.factory(reprCtx, CartoonRepresentationProvider.getParams)
-}
-
-async function parseCif(data: string|Uint8Array) {
-    const comp = CIF.parse(data);
-    const parsed = await comp.run();
-    if (parsed.isError) throw parsed;
-    return parsed.result;
-}
-
-async function downloadCif(url: string, isBinary: boolean) {
-    const data = await ajaxGet({ url, type: isBinary ? 'binary' : 'string' }).run();
-    return parseCif(data);
-}
-
-async function downloadFromPdb(pdb: string) {
-    const parsed = await downloadCif(`https://files.rcsb.org/download/${pdb}.cif`, false);
-    return parsed.blocks[0];
-}
-
-async function getModels(frame: CifFrame) {
-    return await trajectoryFromMmCIF(frame).run();
-}
-
-async function getStructure(model: Model) {
-    return Structure.ofModel(model);
-}
-
-async function run(id: string, out: string) {
-    try {
-        const cif = await downloadFromPdb(id)
-        const models = await getModels(cif as CifFrame)
-        const structure = await getStructure(models[0])
-
-        const cartoonRepr = getCartoonRepr()
-        cartoonRepr.setTheme({
-            color: reprCtx.colorThemeRegistry.create('sequence-id', { structure }),
-            size: reprCtx.sizeThemeRegistry.create('uniform', { structure })
-        })
-        await cartoonRepr.createOrUpdate({ ...CartoonRepresentationProvider.defaultValues, quality: 'auto' }, structure).run()
-
-        canvas3d.add(cartoonRepr)
-        canvas3d.resetCamera()
-    } catch (e) {
-        console.error(e)
-        process.exit(1)
-    }
-
-    setTimeout(() => {
-        const pixelData = canvas3d.getPixelData('color')
-        const png = new PNG({ width, height })
-        png.data = Buffer.from(pixelData.array)
-        png.pack().pipe(fs.createWriteStream(out)).on('finish', () => {
-            process.exit()
-        })
-    }, 500)
-}
-
-//
+import { ImageRenderer, readCifFile, getModels, getID } from './render'
+import { CifFrame, CifBlock } from 'molstar/lib/mol-io/reader/cif';
+import { Model } from 'molstar/lib/mol-model/structure';
 
 const parser = new argparse.ArgumentParser({
     addHelp: true,
-    description: 'render image as PNG (work in progress)'
+    description: 'Render all models and assemblies of a PDB ID'
 });
-parser.addArgument([ 'id' ], {
-    help: 'PDB ID'
+const subparsers = parser.addSubparsers({
+    title: 'subcommands',
+    dest: 'render'
 });
-parser.addArgument([ 'out' ], {
-    help: 'image output path'
-});
-
-interface Args {
-    id: string
-    out: string
+subparsers
+function addBasicArgs(currParser: argparse.ArgumentParser, isDir: boolean) {
+    let inHelp = 'path of cif file'
+    if (isDir) {
+        inHelp = 'directory of all cif files'
+    }
+    currParser.addArgument([ 'in' ], {
+        action: 'store',
+        help: inHelp
+    })
+    currParser.addArgument([ 'out' ], {
+        action: 'store',
+        help: 'output path of png files (not including file name)'
+    });
+    currParser.addArgument([ '--width' ], {
+        action: 'store',
+        help: 'width of image'
+    });
+    currParser.addArgument([ '--height' ], {
+        action: 'store',
+        help: 'height of image'
+    });
+    currParser.addArgument([ '--threshold' ], {
+        action: 'store',
+        help: 'threshold for switching representations'
+    });
+    currParser.addArgument([ '--style' ], {
+        action: 'store',
+        choices: ['toon', 'matte', 'glossy', 'metallic'],
+        help: 'style of render (toon, matte, glossy, or metallic)'
+    })
+    currParser.addArgument([ '--background' ], {
+        action: 'store',
+        choices: ['white', 'black', 'transparent'],
+        help: 'background of render image (white, black, or transparent)'
+    })
 }
-const args: Args = parser.parseArgs();
 
-run(args.id, args.out)
+const modParse = subparsers.addParser('model', {addHelp: true});
+addBasicArgs(modParse, false)
+modParse.addArgument([ 'modIndex' ], {
+    action: 'store',
+    help: 'model index'
+});
+
+const asmParse = subparsers.addParser('assembly', {addHelp: true})
+addBasicArgs(asmParse, false)
+asmParse.addArgument([ 'modIndex' ], {
+    action: 'store',
+    help: 'model index'
+});
+asmParse.addArgument([ 'asmIndex' ], {
+    action: 'store',
+    help: 'assembly index'
+});
+
+const chnParse = subparsers.addParser('chain', {addHelp: true})
+addBasicArgs(chnParse, false)
+chnParse.addArgument([ 'name' ], {
+    action: 'store',
+    help: 'chain name'
+});
+
+const combParse = subparsers.addParser('combined', {addHelp: true})
+addBasicArgs(combParse, false)
+
+const allParse = subparsers.addParser('all', {addHelp: true})
+addBasicArgs(allParse, true)
+allParse.addArgument([ '--list' ], {
+    action: 'store',
+    help: 'path of file containing pdb IDs'
+});
+
+const args = parser.parseArgs();
+
+let width = 2048
+let height = 1536
+let threshold = 5
+let style = 0
+let background = 0
+
+if (!fs.existsSync(args.in)) {
+    console.error(`Input path "${args.in}" does not exist`)
+    process.exit(1)
+}
+
+if (!fs.existsSync(args.out)) {
+    console.error(`Output path "${args.out}" does not exist`)
+    process.exit(1)
+}
+
+async function main() {
+    if (args.width !== null) {
+        width = args.width
+    }
+    if (args.height !== null) {
+        height = args.height
+    }
+    if (args.threshold !== null) {
+        threshold = args.threshold
+    }
+    if (args.style !== null) {
+        switch (args.style) {
+            case 'toon':
+                style = 0;
+                break;
+            case 'matte':
+                style = 1;
+                break;
+            case 'glossy':
+                style = 2;
+                break;
+            case 'metallic':
+                style = 3;
+                break;
+            default:
+                console.error(`Error: "${args.style}" is not a valid style`);
+                process.exit(1);
+        }
+    }
+    if (args.background !== null) {
+        switch (args.background) {
+            case 'white':
+                background = 0;
+                break;
+            case 'black':
+                background = 1;
+                break;
+            case 'transparent':
+                background = 2;
+                break;
+            default:
+                console.error(`Error: "${args.background}" is not a valid background`);
+                process.exit(1);
+        }
+    }
+
+    const id = getID(args.in)
+    const folderName = `${id[1]}${id[2]}`;
+
+
+    (async () => {
+        let renderer = new ImageRenderer(width, height, threshold, style, background)
+        let cif: CifBlock
+        let models: readonly Model[]
+
+        switch (args.render) {
+            case 'all':
+                await renderer.renderList(args.in, args.out, args.list).catch(() => {process.exit(1)})
+                process.exit()
+            case 'combined':
+                await renderer.renderCombined(args.in, args.out).catch(() => {process.exit(1)})
+                process.exit()
+            case 'chain':
+                if (!fs.existsSync(args.out + '/' + folderName)) {
+                    fs.mkdirSync(args.out + '/' + folderName)
+                }
+
+                if (!fs.existsSync(`${args.out}/${folderName}/${id}`)) {
+                    fs.mkdirSync(`${args.out}/${folderName}/${id}`)
+                }
+
+                args.out += `/${folderName}/${id}/`
+
+                cif = await readCifFile(args.in)
+                models = await getModels(cif as CifFrame)
+                await renderer.renderChn(args.name, models, args.out, id).catch(() => {process.exit(1)})
+                process.exit()
+            case 'model':
+                if (!fs.existsSync(args.out + '/' + folderName)) {
+                    fs.mkdirSync(args.out + '/' + folderName)
+                }
+
+                if (!fs.existsSync(`${args.out}/${folderName}/${id}`)) {
+                    fs.mkdirSync(`${args.out}/${folderName}/${id}`)
+                }
+
+                args.out += `/${folderName}/${id}/`
+
+                cif = await readCifFile(args.in)
+                models = await getModels(cif as CifFrame)
+                await renderer.renderMod(args.modIndex, models, args.out, id).catch(() => {process.exit(1)})
+                process.exit()
+            case 'assembly':
+                if (!fs.existsSync(args.out + '/' + folderName)) {
+                    fs.mkdirSync(args.out + '/' + folderName)
+                }
+
+                if (!fs.existsSync(`${args.out}/${folderName}/${id}`)) {
+                    fs.mkdirSync(`${args.out}/${folderName}/${id}`)
+                }
+
+                args.out += `/${folderName}/${id}/`
+
+                cif = await readCifFile(args.in)
+                models = await getModels(cif as CifFrame)
+                await renderer.renderAsm(args.modIndex, args.asmIndex, models, args.out, id).catch(() => {process.exit(1)})
+                process.exit()
+
+        }
+    })().catch((error) => {
+        console.error(error)
+        process.exit(1)
+    })
+
+}
+
+main()

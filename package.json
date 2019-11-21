@@ -32,22 +32,23 @@
   "author": "Mol* Contributors",
   "license": "MIT",
   "devDependencies": {
-    "@types/argparse": "^1.0.36",
     "@types/gl": "^4.1.0",
-    "@types/node": "^12.0.4",
-    "@types/node-fetch": "^2.3.4",
+    "@types/node": "^12.12.6",
+    "@types/node-fetch": "^2.5.3",
     "@types/pngjs": "^3.3.2",
-    "concurrently": "^4.1.0",
-    "molstar": "^0.2.2",
+    "concurrently": "^4.1.2",
+    "molstar": "^0.3.11",
     "node-fetch": "^2.6.0",
-    "tslint": "^5.17.0",
-    "typescript": "3.5.1",
-    "webpack": "^4.32.2",
-    "webpack-cli": "^3.3.2"
+    "tslint": "^5.20.1",
+    "typescript": "^3.7.2",
+    "webpack": "^4.41.2",
+    "webpack-cli": "^3.3.10"
   },
   "dependencies": {
+    "@types/argparse": "^1.0.36",
     "argparse": "^1.0.10",
-    "gl": "^4.3.3",
-    "pngjs": "^3.4.0"
+    "gl": "^4.4.0",
+    "pngjs": "^3.4.0",
+    "util.promisify": "^1.0.0"
   }
 }

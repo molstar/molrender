@@ -37,7 +37,7 @@
     "@types/node-fetch": "^2.5.3",
     "@types/pngjs": "^3.4.0",
     "concurrently": "^5.0.0",
-    "molstar": "^0.4.3",
+    "molstar": "^0.4.4",
     "node-fetch": "^2.6.0",
     "tslint": "^5.20.1",
     "typescript": "^3.7.2",

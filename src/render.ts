@@ -26,6 +26,9 @@ import { compile } from 'molstar/lib/mol-script/runtime/query/compiler';
 import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
 import { StructureSelectionQueries as Q } from 'molstar/lib/mol-plugin/util/structure-selection-helper';
 import { ImagePass } from 'molstar/lib/mol-canvas3d/passes/image';
+import { PrincipalAxes } from 'molstar/lib/mol-math/linear-algebra/matrix/principal-axes';
+import { Vec3 } from 'molstar/lib/mol-math/linear-algebra';
+import Matrix from 'molstar/lib/mol-math/linear-algebra/matrix/matrix';
 
 type Nullable<T> = T | null
 
@@ -112,6 +115,27 @@ async function createPngFile(png: PNG, outPath: string) {
     })
 }
 
+const tmpMatrixPos = Vec3.zero()
+function getPositions(structure: Structure) {
+    const positions = new Float32Array(structure.elementCount * 3)
+    for (let i = 0, m = 0, il = structure.units.length; i < il; ++i) {
+        const unit = structure.units[i]
+        const { elements } = unit
+        const pos = unit.conformation.position
+        for (let j = 0, jl = elements.length; j < jl; ++j) {
+            pos(elements[j], tmpMatrixPos)
+            Vec3.toArray(tmpMatrixPos, positions, m + j * 3)
+        }
+        m += elements.length * 3
+    }
+    return positions
+}
+
+function getMaxDimension(projectedScale: { d1a: number, d2a: number, d3a: number, d1b: number, d2b: number, d3b: number }) {
+    const { d1a, d2a, d3a, d1b, d2b, d3b } = projectedScale
+    return Math.max(d1a - d1b, d2a - d2b, d3a - d3b)
+}
+
 /**
  * ImageRenderer class used to initialize 3dcanvas for rendering
  */
@@ -155,7 +179,7 @@ export class ImageRenderer {
             },
             postprocessing: {
                 ...Canvas3DParams.postprocessing.defaultValue,
-                occlusionEnable: true,
+                occlusionEnable: false,
                 outlineEnable: OUTLINE[style]
             },
             trackball: {
@@ -201,8 +225,16 @@ export class ImageRenderer {
     }
 
     focusCamera(structure: Structure) {
-        const { center, radius } = structure.boundary.sphere
-        this.canvas3d.camera.focus(center, radius, 0)
+        const minRadius = 1
+
+        const positions = getPositions(structure)
+        const principalAxes = PrincipalAxes.ofPoints(Matrix.fromArray(positions, 3, structure.elementCount))
+        const projectedScale = PrincipalAxes.getProjectedScale(positions, principalAxes)
+        const radius = Math.max(getMaxDimension(projectedScale) / 1.8, minRadius);
+
+        const { center, normVecA, normVecC } = principalAxes
+
+        this.canvas3d.camera.focus(center, radius, 0, normVecA, normVecC);
     }
 
     /**

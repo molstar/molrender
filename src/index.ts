@@ -96,7 +96,7 @@ const args = parser.parseArgs();
 let width = 2048
 let height = 1536
 let threshold = 5
-let style = 0
+let style = 1
 let background = 0
 
 if (!fs.existsSync(args.in)) {

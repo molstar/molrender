@@ -19,7 +19,7 @@ const subparsers = parser.addSubparsers({
     title: 'subcommands',
     dest: 'render'
 });
-subparsers
+
 function addBasicArgs(currParser: argparse.ArgumentParser, isDir: boolean) {
     currParser.addArgument([ 'in' ], {
         action: 'store',
@@ -41,33 +41,32 @@ function addBasicArgs(currParser: argparse.ArgumentParser, isDir: boolean) {
     });
 }
 
-const modParse = subparsers.addParser('model', {addHelp: true});
-addBasicArgs(modParse, false)
-modParse.addArgument([ 'modIndex' ], {
+const modelParser = subparsers.addParser('model', { addHelp: true });
+addBasicArgs(modelParser, false)
+modelParser.addArgument([ 'modIndex' ], {
     action: 'store',
     help: 'model index'
 });
 
-const asmParse = subparsers.addParser('assembly', {addHelp: true})
-addBasicArgs(asmParse, false)
-asmParse.addArgument([ 'modIndex' ], {
-    action: 'store',
-    help: 'model index'
-});
-asmParse.addArgument([ 'asmIndex' ], {
+const assmblyParser = subparsers.addParser('assembly', { addHelp: true })
+addBasicArgs(assmblyParser, false)
+assmblyParser.addArgument([ 'asmIndex' ], {
     action: 'store',
     help: 'assembly index'
 });
 
-const chnParse = subparsers.addParser('chain', {addHelp: true})
-addBasicArgs(chnParse, false)
-chnParse.addArgument([ 'chainName' ], {
+const chainParser = subparsers.addParser('chain', { addHelp: true })
+addBasicArgs(chainParser, false)
+chainParser.addArgument([ 'chainName' ], {
     action: 'store',
     help: 'chain name'
 });
 
-const combParse = subparsers.addParser('all', {addHelp: true})
-addBasicArgs(combParse, false)
+const modelsParser = subparsers.addParser('models', { addHelp: true })
+addBasicArgs(modelsParser, false)
+
+const allParser = subparsers.addParser('all', { addHelp: true })
+addBasicArgs(allParser, false)
 
 const args = parser.parseArgs();
 
@@ -92,8 +91,6 @@ export function getFileName(inPath: string) {
 async function main() {
     const renderer = new ImageRenderer(args.width, args.height)
 
-
-
     const fileName = getFileName(args.in)
     const cif = await readCifFile(args.in)
     const models = await getModels(cif as CifFrame)
@@ -103,13 +100,16 @@ async function main() {
             await renderer.renderAll(models, args.out, fileName)
             break
         case 'chain':
-            await renderer.renderChn(args.chainName, models[0], args.out, fileName)
+            await renderer.renderChain(args.chainName, models[0], args.out, fileName)
             break
         case 'model':
-            await renderer.renderMod(models[args.modIndex], args.out, fileName)
+            await renderer.renderModel(models[args.modIndex], args.out, fileName)
             break
         case 'assembly':
-            await renderer.renderAsm(args.asmIndex, models[0], args.out, fileName)
+            await renderer.renderAssembly(args.asmIndex, models[0], args.out, fileName)
+            break
+        case 'models':
+            await renderer.renderModels(models, args.out, fileName)
             break
     }
 }

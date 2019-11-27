@@ -68,7 +68,7 @@ function isBigStructure(structure: Structure) {
     return structure.elementCount > 50_000
 }
 
-function getQuality(structure: Structure) {
+function getQuality(structure: Structure): VisualQuality {
     const quality = getStructureQuality(structure)
     switch (quality) {
         case 'lowest':
@@ -78,6 +78,12 @@ function getQuality(structure: Structure) {
         default:
             return quality
     }
+}
+
+interface ReprParams {
+    colorTheme: string,
+    sizeTheme: string,
+    quality?: VisualQuality
 }
 
 /**
@@ -117,52 +123,54 @@ export class ImageRenderer {
         }
     }
 
-    async addRepresentation(structure: Structure, provider: RepresentationProvider<any, any, any>, colorTheme: string, sizeTheme: string, quality: VisualQuality = 'auto') {
+    async addRepresentation(structure: Structure, provider: RepresentationProvider<any, any, any>, params: ReprParams) {
         const repr = provider.factory(this.reprCtx, provider.getParams)
         repr.setTheme({
-            color: this.reprCtx.colorThemeRegistry.create(colorTheme, { structure }),
-            size: this.reprCtx.sizeThemeRegistry.create(sizeTheme, { structure })
+            color: this.reprCtx.colorThemeRegistry.create(params.colorTheme, { structure }),
+            size: this.reprCtx.sizeThemeRegistry.create(params.sizeTheme, { structure })
         })
-        await repr.createOrUpdate({ ...provider.defaultValues, quality }, structure).run()
+        await repr.createOrUpdate({ ...provider.defaultValues, quality: params.quality || 'auto' }, structure).run()
         await this.canvas3d.add(repr)
     }
 
-    async addCartoon(structure: Structure, quality?: VisualQuality) {
-        const colorTheme = structure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id'
-        const sizeTheme = 'uniform'
-        await this.addRepresentation(structure, CartoonRepresentationProvider, colorTheme, sizeTheme, quality)
+    async addCartoon(structure: Structure, params: Partial<ReprParams> = {}) {
+        await this.addRepresentation(structure, CartoonRepresentationProvider, {
+            colorTheme: structure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id',
+            sizeTheme: 'uniform',
+            ...params
+        })
     }
 
-    async addGaussianSurface(structure: Structure, quality?: VisualQuality) {
-        const colorTheme = structure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id'
-        const sizeTheme = 'uniform'
-        await this.addRepresentation(structure, GaussianSurfaceRepresentationProvider, colorTheme, sizeTheme, quality)
+    async addGaussianSurface(structure: Structure, params: Partial<ReprParams> = {}) {
+        await this.addRepresentation(structure, GaussianSurfaceRepresentationProvider, {
+            colorTheme: structure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id',
+            sizeTheme: 'uniform',
+            ...params
+        })
     }
 
-    async addMolecularSurface(structure: Structure, quality?: VisualQuality) {
-        const colorTheme = structure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id'
-        const sizeTheme = 'uniform'
-        await this.addRepresentation(structure, MolecularSurfaceRepresentationProvider, colorTheme, sizeTheme, quality)
+    async addMolecularSurface(structure: Structure, params: Partial<ReprParams> = {}) {
+        await this.addRepresentation(structure, MolecularSurfaceRepresentationProvider, {
+            colorTheme: structure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id',
+            sizeTheme: 'uniform',
+            ...params
+        })
     }
 
-    async addBallAndStick(structure: Structure, quality?: VisualQuality) {
-        const colorTheme = 'element-symbol'
-        const sizeTheme = 'physical'
-        await this.addRepresentation(structure, BallAndStickRepresentationProvider, colorTheme, sizeTheme, quality)
+    async addBallAndStick(structure: Structure, params: Partial<ReprParams> = {}) {
+        await this.addRepresentation(structure, BallAndStickRepresentationProvider, {
+            colorTheme: 'element-symbol',
+            sizeTheme: 'physical',
+            ...params
+        })
     }
 
-    async addCarbohydrate(structure: Structure, quality?: VisualQuality) {
-        const colorTheme = 'carbohydrate-symbol'
-        const sizeTheme = 'uniform'
-        await this.addRepresentation(structure, CarbohydrateRepresentationProvider, colorTheme, sizeTheme, quality)
-    }
-
-    /**
-     * Retreive structure from model
-     * @param model model to retreive structure from
-     */
-    async getStructure(model: Model) {
-        return Structure.ofModel(model);
+    async addCarbohydrate(structure: Structure, params: Partial<ReprParams> = {}) {
+        await this.addRepresentation(structure, CarbohydrateRepresentationProvider, {
+            colorTheme: 'carbohydrate-symbol',
+            sizeTheme: 'uniform',
+            ...params
+        })
     }
 
     /**
@@ -186,6 +194,12 @@ export class ImageRenderer {
         const principalAxes = PrincipalAxes.ofPositions(getPositions(structure))
         const { origin, dirA, dirC } = principalAxes.boxAxes
         const { sphere } = computeStructureBoundaryFromElements(structure)
+
+        // move camera far in the direction from the origin, so we get a view from the outside
+        const position = Vec3()
+        Vec3.scaleAndAdd(position, position, origin, 100)
+        this.canvas3d.camera.setState({ position }, 0)
+
         this.canvas3d.camera.focus(origin, sphere.radius + extraRadius, 0, dirA, dirC)
     }
 
@@ -196,11 +210,11 @@ export class ImageRenderer {
      * @param outPath output path of image
      * @param fileName input file name
      */
-    async renderAsm(asmIndex: number, model: Model, outPath: string, fileName: string) {
-        const asmName = model.symmetry.assemblies[asmIndex].id
-        console.log(`Rendering ${fileName} assembly ${asmName}...`)
+    async renderAssembly(asmIndex: number, model: Model, outPath: string, fileName: string) {
+        const asmId = model.symmetry.assemblies[asmIndex].id
+        console.log(`Rendering ${fileName} assembly ${asmId}...`)
 
-        const modelStructure = await this.getStructure(model)
+        const modelStructure = Structure.ofModel(model)
         const structure = await StructureSymmetry.buildAssembly(modelStructure, model.symmetry.assemblies[asmIndex].id).run()
         const isBig = isBigStructure(structure)
         const quality = getQuality(structure)
@@ -208,10 +222,10 @@ export class ImageRenderer {
 
         if (isBig) {
             focusStructure = getStructureFromExpression(structure, Q.polymer.expression)
-            await this.addGaussianSurface(focusStructure, quality)
+            await this.addGaussianSurface(focusStructure, { quality })
         } else {
-            await this.addCartoon(getStructureFromExpression(structure, Q.polymer.expression), quality)
-            await this.addCarbohydrate(getStructureFromExpression(structure, Q.branchedPlusConnected.expression), quality)
+            await this.addCartoon(getStructureFromExpression(structure, Q.polymer.expression), { quality })
+            await this.addCarbohydrate(getStructureFromExpression(structure, Q.branchedPlusConnected.expression), { quality })
             await this.addBallAndStick(getStructureFromExpression(structure, MS.struct.modifier.union([
                 MS.struct.combinator.merge([
                     Q.ligandPlusConnected.expression,
@@ -220,7 +234,7 @@ export class ImageRenderer {
                     Q.nonStandardPolymer.expression,
                     Q.water.expression
                 ])
-            ])), quality)
+            ])), { quality })
             focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
                 MS.struct.combinator.merge([
                     Q.trace.expression,
@@ -237,7 +251,7 @@ export class ImageRenderer {
         this.focusCamera(focusStructure, isBig ? 5 : 1)
 
         // Write png to file
-        let imagePathName = `${outPath}/${fileName}_assembly-${asmName}.png`
+        let imagePathName = `${outPath}/${fileName}_assembly-${asmId}.png`
         await this.createImage(imagePathName, isBig, isBig)
 
         // Finished writing to file and clear canvas
@@ -252,20 +266,20 @@ export class ImageRenderer {
      * @param outPath output path of image
      * @param fileName input file name
      */
-    async renderMod(model: Model, outPath: string, fileName: string) {
+    async renderModel(model: Model, outPath: string, fileName: string) {
         console.log(`Rendering ${fileName} model ${model.modelNum}...`)
 
-        const structure = await this.getStructure(model)
+        const structure = Structure.ofModel(model)
         const isBig = isBigStructure(structure)
         const quality = getQuality(structure)
         let focusStructure: Structure
 
         if (isBig) {
             focusStructure = getStructureFromExpression(structure, Q.polymer.expression)
-            await this.addGaussianSurface(getStructureFromExpression(structure, Q.polymer.expression), quality)
+            await this.addGaussianSurface(getStructureFromExpression(structure, Q.polymer.expression), { quality })
         } else {
-            await this.addCartoon(getStructureFromExpression(structure, Q.polymer.expression), quality)
-            await this.addCarbohydrate(getStructureFromExpression(structure, Q.branchedPlusConnected.expression), quality)
+            await this.addCartoon(getStructureFromExpression(structure, Q.polymer.expression), { quality })
+            await this.addCarbohydrate(getStructureFromExpression(structure, Q.branchedPlusConnected.expression), { quality })
             await this.addBallAndStick(getStructureFromExpression(structure, MS.struct.modifier.union([
                 MS.struct.combinator.merge([
                     Q.ligandPlusConnected.expression,
@@ -274,7 +288,7 @@ export class ImageRenderer {
                     Q.nonStandardPolymer.expression,
                     Q.water.expression
                 ])
-            ])), quality)
+            ])), { quality })
             focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
                 MS.struct.combinator.merge([
                     Q.trace.expression,
@@ -301,17 +315,17 @@ export class ImageRenderer {
 
     /**
      * Renders the chain
-     * @param chnName name of chain
+     * @param chainName name of chain
      * @param model model from CIF data
      * @param outPath path to put rendered image
      * @param fileName input file name
      */
-    async renderChn(chnName: string, model: Model, outPath: string, fileName: string) {
-        console.log(`Rendering ${fileName} chain ${chnName}...`)
+    async renderChain(chainName: string, model: Model, outPath: string, fileName: string) {
+        console.log(`Rendering ${fileName} chain ${chainName}...`)
 
-        const modelStructure = await this.getStructure(model)
+        const modelStructure = Structure.ofModel(model)
         const structure = getStructureFromExpression(modelStructure, MS.struct.generator.atomGroups({
-            'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), chnName])
+            'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), chainName])
         }))
         const isBig = isBigStructure(structure)
         const quality = getQuality(structure)
@@ -319,19 +333,19 @@ export class ImageRenderer {
 
         if (isBig) {
             focusStructure = getStructureFromExpression(structure, Q.polymer.expression)
-            await this.addGaussianSurface(focusStructure, quality)
+            await this.addGaussianSurface(focusStructure, { quality })
         } else if (structure.polymerResidueCount < 5) {
             focusStructure = getStructureFromExpression(structure, Q.polymer.expression)
-            await this.addBallAndStick(focusStructure, quality)
+            await this.addBallAndStick(focusStructure, { quality })
         } else {
-            await this.addCartoon(getStructureFromExpression(structure, Q.polymer.expression), quality)
+            await this.addCartoon(getStructureFromExpression(structure, Q.polymer.expression), { quality })
             await this.addBallAndStick(getStructureFromExpression(structure, MS.struct.modifier.union([
                 MS.struct.combinator.merge([
                     Q.ligandPlusConnected.expression,
                     Q.disulfideBridges.expression,
                     Q.nonStandardPolymer.expression,
                 ])
-            ])), quality)
+            ])), { quality })
             focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
                 MS.struct.combinator.merge([
                     Q.trace.expression,
@@ -345,7 +359,58 @@ export class ImageRenderer {
         this.focusCamera(focusStructure, isBig ? 5 : 1)
 
         // Write png to file
-        let imagePathName = `${outPath}/${fileName}_chain-${chnName}.png`
+        let imagePathName = `${outPath}/${fileName}_chain-${chainName}.png`
+        await this.createImage(imagePathName, isBig, isBig)
+
+        // Finished writing to file and clear canvas
+        console.log('Finished.')
+        this.canvas3d.clear()
+    }
+
+    async renderModels(models: ReadonlyArray<Model>, outPath: string, fileName: string) {
+        console.log(`Rendering ${fileName} models`)
+
+        const structure = Structure.ofTrajectory(models)
+        const isBig = isBigStructure(structure)
+        const quality = getQuality(structure)
+        const firstModelStructure = Structure.ofModel(models[0])
+        const colorTheme = firstModelStructure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id'
+        let focusStructure: Structure
+
+        const params = { colorTheme, quality }
+
+        if (isBig) {
+            focusStructure = getStructureFromExpression(structure, Q.polymer.expression)
+            await this.addGaussianSurface(getStructureFromExpression(structure, Q.polymer.expression), params)
+        } else {
+            await this.addCartoon(getStructureFromExpression(structure, Q.polymer.expression), params)
+            await this.addCarbohydrate(getStructureFromExpression(structure, Q.branchedPlusConnected.expression), { quality })
+            await this.addBallAndStick(getStructureFromExpression(structure, MS.struct.modifier.union([
+                MS.struct.combinator.merge([
+                    Q.ligandPlusConnected.expression,
+                    Q.branchedConnectedOnly.expression,
+                    Q.disulfideBridges.expression,
+                    Q.nonStandardPolymer.expression,
+                    Q.water.expression
+                ])
+            ])), { quality })
+            focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
+                MS.struct.combinator.merge([
+                    Q.trace.expression,
+                    Q.branchedPlusConnected.expression,
+                    Q.ligandPlusConnected.expression,
+                    Q.branchedConnectedOnly.expression,
+                    Q.disulfideBridges.expression,
+                    Q.nonStandardPolymer.expression,
+                    Q.water.expression
+                ])
+            ]))
+        }
+
+        this.focusCamera(focusStructure, isBig ? 5 : 1)
+
+        // Write png to file
+        let imagePathName = `${outPath}/${fileName}_models.png`
         await this.createImage(imagePathName, isBig, isBig)
 
         // Finished writing to file and clear canvas
@@ -361,12 +426,12 @@ export class ImageRenderer {
     async renderAll(models: ReadonlyArray<Model>, outPath: string, fileName: string) {
         // Render all models
         for (let i = 0; i < models.length; i++) {
-            await this.renderMod(models[i], outPath, fileName)
+            await this.renderModel(models[i], outPath, fileName)
         }
 
         // Render all assemblies
         for (let i = 0, il = models[0].symmetry.assemblies.length; i < il; i++) {
-            await this.renderAsm(i, models[0], outPath, fileName)
+            await this.renderAssembly(i, models[0], outPath, fileName)
         }
 
         const { entities } = models[0]
@@ -377,7 +442,12 @@ export class ImageRenderer {
             const eI = entities.getEntityIndex(label_entity_id.value(i))
             if (entities.data.type.value(eI) !== 'polymer') continue
             const chnName = label_asym_id.value(i)
-            await this.renderChn(chnName, models[0], outPath, fileName)
+            await this.renderChain(chnName, models[0], outPath, fileName)
+        }
+
+        // Render models ensemble
+        if (models.length > 1) {
+            await this.renderModels(models, outPath, fileName)
         }
     }
 }

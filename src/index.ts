@@ -39,6 +39,11 @@ function addBasicArgs(currParser: argparse.ArgumentParser, isDir: boolean) {
         help: 'image width',
         defaultValue: 1536
     });
+    currParser.addArgument([ '--format' ], {
+        action: 'store',
+        help: 'image format',
+        defaultValue: 'png'
+    });
 }
 
 const modelParser = subparsers.addParser('model', { addHelp: true });
@@ -89,7 +94,7 @@ export function getFileName(inPath: string) {
 }
 
 async function main() {
-    const renderer = new ImageRenderer(args.width, args.height)
+    const renderer = new ImageRenderer(args.width, args.height, args.format)
 
     const fileName = getFileName(args.in)
     const cif = await readCifFile(args.in)

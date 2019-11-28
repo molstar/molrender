@@ -32,6 +32,7 @@
   "author": "Mol* Contributors",
   "license": "MIT",
   "devDependencies": {
+    "@types/argparse": "^1.0.36",
     "@types/gl": "^4.1.0",
     "@types/node": "^12.12.11",
     "@types/node-fetch": "^2.5.3",
@@ -45,9 +46,9 @@
     "webpack-cli": "^3.3.10"
   },
   "dependencies": {
-    "@types/argparse": "^1.0.36",
     "argparse": "^1.0.10",
     "gl": "^4.4.0",
+    "jpeg-js": "^0.3.6",
     "pngjs": "^3.4.0",
     "util.promisify": "^1.0.0"
   }

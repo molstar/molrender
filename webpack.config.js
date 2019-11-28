@@ -11,7 +11,8 @@ module.exports = [
         externals: {
             argparse: 'require("argparse")',
             gl: 'require("gl")',
-            pngjs: 'require("pngjs")'
+            pngjs: 'require("pngjs")',
+            'jpeg-js': 'require("jpeg-js")'
         },
         plugins: [
             new webpack.DefinePlugin({

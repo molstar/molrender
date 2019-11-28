@@ -7,7 +7,8 @@
 
 import createContext = require('gl')
 import fs = require('fs')
-import { PNG, PNGOptions } from 'pngjs'
+import { PNG } from 'pngjs'
+import * as JPEG from 'jpeg-js'
 import { Canvas3D, DefaultCanvas3DParams } from 'molstar/lib/mol-canvas3d/canvas3d';
 import InputObserver from 'molstar/lib/mol-util/input/input-observer';
 import { ColorTheme } from 'molstar/lib/mol-theme/color';
@@ -36,9 +37,15 @@ import { ColorNames } from 'molstar/lib/mol-util/color/tables';
  * @param generatedPng PNG data
  * @param outPath path to put created PNG
  */
-async function createPngFile(png: PNG, outPath: string) {
-    return new Promise<void>(resolve => {
+async function writePngFile(png: PNG, outPath: string) {
+    await new Promise<void>(resolve => {
         png.pack().pipe(fs.createWriteStream(outPath)).on('finish', resolve)
+    })
+}
+
+async function writeJpegFile(jpeg: JPEG.BufferRet, outPath: string) {
+    await new Promise<void>(resolve => {
+        fs.writeFile(outPath, jpeg.data, () => resolve())
     })
 }
 
@@ -96,7 +103,7 @@ export class ImageRenderer {
     canvas3d: Canvas3D
     imagePass: ImagePass
 
-    constructor(private width: number, private height: number) {
+    constructor(private width: number, private height: number, private format: 'png' | 'jpeg') {
         this.gl = createContext(this.width, this.height, {
             alpha: false,
             antialias: true,
@@ -184,10 +191,21 @@ export class ImageRenderer {
 
         this.imagePass.render()
         const imageData = this.imagePass.colorTarget.getPixelData()
-        const options: PNGOptions = {width: this.width, height: this.height}
-        const generatedPng = new PNG(options)
-        generatedPng.data = Buffer.from(imageData.array)
-        await createPngFile(generatedPng, outPath)
+
+        if (this.format === 'png') {
+            const generatedPng = new PNG({ width: this.width, height: this.height })
+            generatedPng.data = Buffer.from(imageData.array)
+            await writePngFile(generatedPng, `${outPath}.png`)
+        } else if (this.format === 'jpeg') {
+            const generatedJpeg = JPEG.encode({
+                data: imageData.array,
+                width: this.width,
+                height: this.height
+            }, 90)
+            await writeJpegFile(generatedJpeg, `${outPath}.jpeg`)
+        } else {
+            throw new Error(`unknown image type '${this.format}'`)
+        }
     }
 
     focusCamera(structure: Structure, extraRadius = 0) {
@@ -251,7 +269,7 @@ export class ImageRenderer {
         this.focusCamera(focusStructure, isBig ? 5 : 1)
 
         // Write png to file
-        let imagePathName = `${outPath}/${fileName}_assembly-${asmId}.png`
+        let imagePathName = `${outPath}/${fileName}_assembly-${asmId}`
         await this.createImage(imagePathName, isBig, isBig)
 
         // Finished writing to file and clear canvas
@@ -305,7 +323,7 @@ export class ImageRenderer {
         this.focusCamera(focusStructure, isBig ? 5 : 1)
 
         // Write png to file
-        let imagePathName = `${outPath}/${fileName}_model-${model.modelNum}.png`
+        let imagePathName = `${outPath}/${fileName}_model-${model.modelNum}`
         await this.createImage(imagePathName, isBig, isBig)
 
         // Finished writing to file and clear canvas
@@ -359,7 +377,7 @@ export class ImageRenderer {
         this.focusCamera(focusStructure, isBig ? 5 : 1)
 
         // Write png to file
-        let imagePathName = `${outPath}/${fileName}_chain-${chainName}.png`
+        let imagePathName = `${outPath}/${fileName}_chain-${chainName}`
         await this.createImage(imagePathName, isBig, isBig)
 
         // Finished writing to file and clear canvas
@@ -410,7 +428,7 @@ export class ImageRenderer {
         this.focusCamera(focusStructure, isBig ? 5 : 1)
 
         // Write png to file
-        let imagePathName = `${outPath}/${fileName}_models.png`
+        let imagePathName = `${outPath}/${fileName}_models`
         await this.createImage(imagePathName, isBig, isBig)
 
         // Finished writing to file and clear canvas

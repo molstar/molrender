@@ -249,8 +249,7 @@ export class ImageRenderer {
                     Q.ligandPlusConnected.expression,
                     Q.branchedConnectedOnly.expression,
                     Q.disulfideBridges.expression,
-                    Q.nonStandardPolymer.expression,
-                    Q.water.expression
+                    Q.nonStandardPolymer.expression
                 ])
             ])), { quality })
             focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
@@ -260,8 +259,7 @@ export class ImageRenderer {
                     Q.ligandPlusConnected.expression,
                     Q.branchedConnectedOnly.expression,
                     Q.disulfideBridges.expression,
-                    Q.nonStandardPolymer.expression,
-                    Q.water.expression
+                    Q.nonStandardPolymer.expression
                 ])
             ]))
         }
@@ -303,8 +301,7 @@ export class ImageRenderer {
                     Q.ligandPlusConnected.expression,
                     Q.branchedConnectedOnly.expression,
                     Q.disulfideBridges.expression,
-                    Q.nonStandardPolymer.expression,
-                    Q.water.expression
+                    Q.nonStandardPolymer.expression
                 ])
             ])), { quality })
             focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
@@ -314,8 +311,7 @@ export class ImageRenderer {
                     Q.ligandPlusConnected.expression,
                     Q.branchedConnectedOnly.expression,
                     Q.disulfideBridges.expression,
-                    Q.nonStandardPolymer.expression,
-                    Q.water.expression
+                    Q.nonStandardPolymer.expression
                 ])
             ]))
         }
@@ -408,8 +404,7 @@ export class ImageRenderer {
                     Q.ligandPlusConnected.expression,
                     Q.branchedConnectedOnly.expression,
                     Q.disulfideBridges.expression,
-                    Q.nonStandardPolymer.expression,
-                    Q.water.expression
+                    Q.nonStandardPolymer.expression
                 ])
             ])), { quality })
             focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
@@ -419,8 +414,7 @@ export class ImageRenderer {
                     Q.ligandPlusConnected.expression,
                     Q.branchedConnectedOnly.expression,
                     Q.disulfideBridges.expression,
-                    Q.nonStandardPolymer.expression,
-                    Q.water.expression
+                    Q.nonStandardPolymer.expression
                 ])
             ]))
         }

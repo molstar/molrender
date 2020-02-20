@@ -27,7 +27,7 @@ function addBasicArgs(currParser: argparse.ArgumentParser, isDir: boolean) {
     })
     currParser.addArgument([ 'out' ], {
         action: 'store',
-        help: 'output directory for PNG images'
+        help: 'output directory for images'
     });
     currParser.addArgument([ '--width' ], {
         action: 'store',
@@ -41,7 +41,7 @@ function addBasicArgs(currParser: argparse.ArgumentParser, isDir: boolean) {
     });
     currParser.addArgument([ '--format' ], {
         action: 'store',
-        help: 'image format',
+        help: 'image format (png or jpeg)',
         defaultValue: 'png'
     });
 }
@@ -108,7 +108,7 @@ async function main() {
             await renderer.renderChain(args.chainName, models[0], args.out, fileName)
             break
         case 'model':
-            await renderer.renderModel(models[args.modIndex], args.out, fileName)
+            await renderer.renderModel(args.modIndex + 1, models[args.modIndex], args.out, fileName)
             break
         case 'assembly':
             await renderer.renderAssembly(args.asmIndex, models[0], args.out, fileName)

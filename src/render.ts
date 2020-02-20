@@ -5,10 +5,11 @@
  * @author Jesse Liang <jesse.liang@rcsb.org>
  */
 
-import createContext = require('gl')
+import getGLContext = require('gl')
 import fs = require('fs')
 import { PNG } from 'pngjs'
 import * as JPEG from 'jpeg-js'
+import { createContext } from 'molstar/lib/mol-gl/webgl/context';
 import { Canvas3D, DefaultCanvas3DParams } from 'molstar/lib/mol-canvas3d/canvas3d';
 import InputObserver from 'molstar/lib/mol-util/input/input-observer';
 import { ColorTheme } from 'molstar/lib/mol-theme/color';
@@ -19,6 +20,7 @@ import { GaussianSurfaceRepresentationProvider } from 'molstar/lib/mol-repr/stru
 import { BallAndStickRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/ball-and-stick';
 import { CarbohydrateRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/carbohydrate'
 import { Model, Structure, StructureSymmetry, QueryContext, StructureSelection } from 'molstar/lib/mol-model/structure';
+import { ModelSymmetry } from 'molstar/lib/mol-model-formats/structure/property/symmetry';
 import { RepresentationProvider } from 'molstar/lib/mol-repr/representation';
 import { compile } from 'molstar/lib/mol-script/runtime/query/compiler';
 import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
@@ -29,12 +31,13 @@ import { Vec3 } from 'molstar/lib/mol-math/linear-algebra';
 import Expression from 'molstar/lib/mol-script/language/expression';
 import { VisualQuality } from 'molstar/lib/mol-geo/geometry/base';
 import { getStructureQuality } from 'molstar/lib/mol-repr/util';
-import { ColorNames } from 'molstar/lib/mol-util/color/tables';
+import { ColorNames } from 'molstar/lib/mol-util/color/names';
+import { Camera } from 'molstar/lib/mol-canvas3d/camera';
+import { ajaxGet } from 'molstar/lib/mol-util/data-source';
+import { SyncRuntimeContext } from 'molstar/lib/mol-task/execution/synchronous';
 
 /**
  * Helper method to create PNG with given PNG data
- * @param generatedPng PNG data
- * @param outPath path to put created PNG
  */
 async function writePngFile(png: PNG, outPath: string) {
     await new Promise<void>(resolve => {
@@ -71,14 +74,38 @@ function getStructureFromExpression(structure: Structure, expression: Expression
 }
 
 function getColorTheme(structure: Structure) {
-    console.log(structure.polymerUnitCount)
     if (structure.polymerUnitCount === 1) return 'sequence-id'
     else if (structure.polymerUnitCount < 40) return 'polymer-index'
     else return 'polymer-id'
 }
 
-function isBigStructure(structure: Structure) {
-    return structure.elementCount > 50_000
+enum StructureSize { Big, Medium, Small }
+
+/**
+ * Try to match fiber-like structures like 6nk4
+ */
+function isFiberLike(structure: Structure) {
+    const polymerSymmetryGroups = structure.unitSymmetryGroups.filter(ug => {
+        return ug.units[0].polymerElements.length > 0
+    })
+
+    return (
+        polymerSymmetryGroups.length === 1 &&
+        polymerSymmetryGroups[0].units.length > 2 &&
+        polymerSymmetryGroups[0].units[0].polymerElements.length < 15
+    )
+}
+
+function getStructureSize(structure: Structure): StructureSize {
+    if (structure.polymerResidueCount > 4000) {
+        return StructureSize.Big
+    } else if (isFiberLike(structure)) {
+        return StructureSize.Small
+    } else if (structure.polymerResidueCount < 10) {
+        return StructureSize.Small
+    } else {
+        return StructureSize.Medium
+    }
 }
 
 function getQuality(structure: Structure): VisualQuality {
@@ -110,15 +137,16 @@ export class ImageRenderer {
     imagePass: ImagePass
 
     constructor(private width: number, private height: number, private format: 'png' | 'jpeg') {
-        this.gl = createContext(this.width, this.height, {
+        this.gl = getGLContext(this.width, this.height, {
             alpha: false,
             antialias: true,
             depth: true,
             preserveDrawingBuffer: true,
             premultipliedAlpha: false
         })
+        const webgl = createContext(this.gl)
         const input = InputObserver.create()
-        this.canvas3d = Canvas3D.create(this.gl, input, {
+        this.canvas3d = Canvas3D.create(webgl, input, {
             cameraMode: 'orthographic',
             renderer: {
                 ...DefaultCanvas3DParams.renderer,
@@ -146,13 +174,16 @@ export class ImageRenderer {
     }
 
     async addRepresentation(structure: Structure, provider: RepresentationProvider<any, any, any>, params: ReprParams) {
+        if (provider.ensureCustomProperties) {
+            await provider.ensureCustomProperties({ fetch: ajaxGet, runtime: SyncRuntimeContext }, structure)
+        }
         const repr = provider.factory(this.reprCtx, provider.getParams)
         repr.setTheme({
             color: this.reprCtx.colorThemeRegistry.create(params.colorTheme, { structure }),
             size: this.reprCtx.sizeThemeRegistry.create(params.sizeTheme, { structure })
         })
         await repr.createOrUpdate({ ...provider.defaultValues, quality: params.quality || 'auto', ignoreHydrogens: true }, structure).run()
-        await this.canvas3d.add(repr)
+        this.canvas3d.add(repr)
     }
 
     async addCartoon(structure: Structure, params: Partial<ReprParams> = {}) {
@@ -197,11 +228,19 @@ export class ImageRenderer {
 
     /**
      * Creates PNG with the current 3dcanvas data
-     * @param outPath path to put created PNG
      */
-    async createImage(outPath: string, occlusionEnable = false, outlineEnable = false) {
+    async createImage(outPath: string, size: StructureSize) {
+        const occlusionEnable = size === StructureSize.Big
+        const outlineEnable = size === StructureSize.Big
+
+        this.canvas3d.commit(true)
+
         this.imagePass.setProps({
-            postprocessing: { ...this.canvas3d.props.postprocessing, occlusionEnable, outlineEnable }
+            postprocessing: {
+                ...this.canvas3d.props.postprocessing,
+                occlusionEnable,
+                outlineEnable
+            }
         })
 
         this.imagePass.render()
@@ -233,57 +272,71 @@ export class ImageRenderer {
         Vec3.scaleAndAdd(position, position, origin, 100)
         this.canvas3d.camera.setState({ position }, 0)
 
-        this.canvas3d.camera.focus(origin, radius, 0, dirA, dirC)
+        // tight zoom
+        this.canvas3d.camera.focus(origin, radius, radius, 0, dirA, dirC)
+
+        // ensure nothing is clipped off in the front
+        const state = Camera.copySnapshot(Camera.createDefaultSnapshot(), this.canvas3d.camera.state)
+        state.radiusNear = structure.boundary.sphere.radius
+        state.radiusFar = structure.boundary.sphere.radius
+        this.canvas3d.camera.setState(state)
     }
 
     /**
      * Renders the assembly
-     * @param asmIndex index of assembly
-     * @param model model from CIF data
-     * @param outPath output path of image
-     * @param fileName input file name
      */
     async renderAssembly(asmIndex: number, model: Model, outPath: string, fileName: string) {
-        const asmId = model.symmetry.assemblies[asmIndex].id
+        const symmetry = ModelSymmetry.Provider.get(model)!
+        const asmId = symmetry.assemblies[asmIndex].id
         console.log(`Rendering ${fileName} assembly ${asmId}...`)
 
         const modelStructure = Structure.ofModel(model)
-        const structure = await StructureSymmetry.buildAssembly(modelStructure, model.symmetry.assemblies[asmIndex].id).run()
-        const isBig = isBigStructure(structure)
+        const structure = await StructureSymmetry.buildAssembly(modelStructure, symmetry.assemblies[asmIndex].id).run()
+        const size = getStructureSize(structure)
         const quality = getQuality(structure)
         let focusStructure: Structure
 
-        if (isBig) {
+        if (size === StructureSize.Big) {
             focusStructure = getStructureFromExpression(structure, Q.polymer.expression)
             await this.addGaussianSurface(focusStructure, { quality })
         } else {
             await this.addCartoon(getStructureFromExpression(structure, Q.polymer.expression), { quality })
             await this.addCarbohydrate(getStructureFromExpression(structure, Q.branchedPlusConnected.expression), { quality })
-            await this.addBallAndStick(getStructureFromExpression(structure, MS.struct.modifier.union([
-                MS.struct.combinator.merge([
-                    Q.ligandPlusConnected.expression,
-                    Q.branchedConnectedOnly.expression,
-                    Q.disulfideBridges.expression,
-                    Q.nonStandardPolymer.expression
-                ])
-            ])), { quality })
-            focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
-                MS.struct.combinator.merge([
-                    Q.trace.expression,
-                    Q.branchedPlusConnected.expression,
-                    Q.ligandPlusConnected.expression,
-                    Q.branchedConnectedOnly.expression,
-                    Q.disulfideBridges.expression,
-                    Q.nonStandardPolymer.expression
-                ])
-            ]))
+            if (size === StructureSize.Small) {
+                focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
+                    MS.struct.modifier.exceptBy({
+                        0: MS.struct.generator.all(),
+                        by: Q.water.expression
+                    })
+                ]))
+                await this.addBallAndStick(focusStructure, { quality })
+            } else {
+                await this.addBallAndStick(getStructureFromExpression(structure, MS.struct.modifier.union([
+                    MS.struct.combinator.merge([
+                        Q.ligandPlusConnected.expression,
+                        Q.branchedConnectedOnly.expression,
+                        Q.disulfideBridges.expression,
+                        Q.nonStandardPolymer.expression
+                    ])
+                ])), { quality })
+                focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
+                    MS.struct.combinator.merge([
+                        Q.trace.expression,
+                        Q.branchedPlusConnected.expression,
+                        Q.ligandPlusConnected.expression,
+                        Q.branchedConnectedOnly.expression,
+                        Q.disulfideBridges.expression,
+                        Q.nonStandardPolymer.expression
+                    ])
+                ]))
+            }
         }
 
         this.focusCamera(focusStructure)
 
         // Write png to file
         let imagePathName = `${outPath}/${fileName}_assembly-${asmId}`
-        await this.createImage(imagePathName, isBig, isBig)
+        await this.createImage(imagePathName, size)
 
         // Finished writing to file and clear canvas
         console.log('Finished.')
@@ -293,49 +346,56 @@ export class ImageRenderer {
 
     /**
      * Renders the model
-     * @param model model from CIF data
-     * @param outPath output path of image
-     * @param fileName input file name
      */
-    async renderModel(model: Model, outPath: string, fileName: string) {
-        console.log(`Rendering ${fileName} model ${model.modelNum}...`)
+    async renderModel(oneIndex: number, model: Model, outPath: string, fileName: string) {
+        console.log(`Rendering ${fileName} model ${model.modelNum} with index ${oneIndex}...`)
 
         const structure = Structure.ofModel(model)
-        const isBig = isBigStructure(structure)
+        const size = getStructureSize(structure)
         const quality = getQuality(structure)
         let focusStructure: Structure
 
-        if (isBig) {
+        if (size === StructureSize.Big) {
             focusStructure = getStructureFromExpression(structure, Q.polymer.expression)
-            await this.addGaussianSurface(getStructureFromExpression(structure, Q.polymer.expression), { quality })
+            await this.addGaussianSurface(focusStructure, { quality })
         } else {
             await this.addCartoon(getStructureFromExpression(structure, Q.polymer.expression), { quality })
             await this.addCarbohydrate(getStructureFromExpression(structure, Q.branchedPlusConnected.expression), { quality })
-            await this.addBallAndStick(getStructureFromExpression(structure, MS.struct.modifier.union([
-                MS.struct.combinator.merge([
-                    Q.ligandPlusConnected.expression,
-                    Q.branchedConnectedOnly.expression,
-                    Q.disulfideBridges.expression,
-                    Q.nonStandardPolymer.expression
-                ])
-            ])), { quality })
-            focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
-                MS.struct.combinator.merge([
-                    Q.trace.expression,
-                    Q.branchedPlusConnected.expression,
-                    Q.ligandPlusConnected.expression,
-                    Q.branchedConnectedOnly.expression,
-                    Q.disulfideBridges.expression,
-                    Q.nonStandardPolymer.expression
-                ])
-            ]))
+            if (size === StructureSize.Small) {
+                focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
+                    MS.struct.modifier.exceptBy({
+                        0: MS.struct.generator.all(),
+                        by: Q.water.expression
+                    })
+                ]))
+                await this.addBallAndStick(focusStructure, { quality })
+            } else {
+                await this.addBallAndStick(getStructureFromExpression(structure, MS.struct.modifier.union([
+                    MS.struct.combinator.merge([
+                        Q.ligandPlusConnected.expression,
+                        Q.branchedConnectedOnly.expression,
+                        Q.disulfideBridges.expression,
+                        Q.nonStandardPolymer.expression
+                    ])
+                ])), { quality })
+                focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
+                    MS.struct.combinator.merge([
+                        Q.trace.expression,
+                        Q.branchedPlusConnected.expression,
+                        Q.ligandPlusConnected.expression,
+                        Q.branchedConnectedOnly.expression,
+                        Q.disulfideBridges.expression,
+                        Q.nonStandardPolymer.expression
+                    ])
+                ]))
+            }
         }
 
         this.focusCamera(focusStructure)
 
         // Write png to file
-        let imagePathName = `${outPath}/${fileName}_model-${model.modelNum}`
-        await this.createImage(imagePathName, isBig, isBig)
+        let imagePathName = `${outPath}/${fileName}_model-${oneIndex}`
+        await this.createImage(imagePathName, size)
 
         // Finished writing to file and clear canvas
         console.log('Finished.')
@@ -344,10 +404,6 @@ export class ImageRenderer {
 
     /**
      * Renders the chain
-     * @param chainName name of chain
-     * @param model model from CIF data
-     * @param outPath path to put rendered image
-     * @param fileName input file name
      */
     async renderChain(chainName: string, model: Model, outPath: string, fileName: string) {
         console.log(`Rendering ${fileName} chain ${chainName}...`)
@@ -356,40 +412,47 @@ export class ImageRenderer {
         const structure = getStructureFromExpression(modelStructure, MS.struct.generator.atomGroups({
             'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), chainName])
         }))
-        const isBig = isBigStructure(structure)
+        const size = getStructureSize(structure)
         const quality = getQuality(structure)
         let focusStructure: Structure
 
-        if (isBig) {
+        if (size === StructureSize.Big) {
             focusStructure = getStructureFromExpression(structure, Q.polymer.expression)
             await this.addGaussianSurface(focusStructure, { quality })
-        } else if (structure.polymerResidueCount < 5) {
-            focusStructure = getStructureFromExpression(structure, Q.polymer.expression)
-            await this.addBallAndStick(focusStructure, { quality })
         } else {
             await this.addCartoon(getStructureFromExpression(structure, Q.polymer.expression), { quality })
-            await this.addBallAndStick(getStructureFromExpression(structure, MS.struct.modifier.union([
-                MS.struct.combinator.merge([
-                    Q.ligandPlusConnected.expression,
-                    Q.disulfideBridges.expression,
-                    Q.nonStandardPolymer.expression,
-                ])
-            ])), { quality })
-            focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
-                MS.struct.combinator.merge([
-                    Q.trace.expression,
-                    Q.ligandPlusConnected.expression,
-                    Q.disulfideBridges.expression,
-                    Q.nonStandardPolymer.expression,
-                ])
-            ]))
+            if (size === StructureSize.Small) {
+                focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
+                    MS.struct.modifier.exceptBy({
+                        0: MS.struct.generator.all(),
+                        by: Q.water.expression
+                    })
+                ]))
+                await this.addBallAndStick(focusStructure, { quality })
+            } else {
+                await this.addBallAndStick(getStructureFromExpression(structure, MS.struct.modifier.union([
+                    MS.struct.combinator.merge([
+                        Q.ligandPlusConnected.expression,
+                        Q.disulfideBridges.expression,
+                        Q.nonStandardPolymer.expression,
+                    ])
+                ])), { quality })
+                focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
+                    MS.struct.combinator.merge([
+                        Q.trace.expression,
+                        Q.ligandPlusConnected.expression,
+                        Q.disulfideBridges.expression,
+                        Q.nonStandardPolymer.expression,
+                    ])
+                ]))
+            }
         }
 
         this.focusCamera(focusStructure)
 
         // Write png to file
         let imagePathName = `${outPath}/${fileName}_chain-${chainName}`
-        await this.createImage(imagePathName, isBig, isBig)
+        await this.createImage(imagePathName, size)
 
         // Finished writing to file and clear canvas
         console.log('Finished.')
@@ -401,35 +464,47 @@ export class ImageRenderer {
 
         const structure = Structure.ofTrajectory(models)
         const firstModelStructure = Structure.ofModel(models[0])
-        const isBig = isBigStructure(firstModelStructure)
+        const size = getStructureSize(firstModelStructure)
         const quality = getQuality(firstModelStructure)
+        const colorTheme = firstModelStructure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id'
+        let focusStructure: Structure
 
-        await this.addCartoon(getStructureFromExpression(structure, Q.polymer.expression), { quality, colorTheme: firstModelStructure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id' })
+        await this.addCartoon(getStructureFromExpression(structure, Q.polymer.expression), { quality, colorTheme })
         await this.addCarbohydrate(getStructureFromExpression(structure, Q.branchedPlusConnected.expression), { quality })
-        await this.addBallAndStick(getStructureFromExpression(structure, MS.struct.modifier.union([
-            MS.struct.combinator.merge([
-                Q.ligandPlusConnected.expression,
-                Q.branchedConnectedOnly.expression,
-                Q.disulfideBridges.expression,
-                Q.nonStandardPolymer.expression
-            ])
-        ])), { quality })
-        const focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
-            MS.struct.combinator.merge([
-                Q.trace.expression,
-                Q.branchedPlusConnected.expression,
-                Q.ligandPlusConnected.expression,
-                Q.branchedConnectedOnly.expression,
-                Q.disulfideBridges.expression,
-                Q.nonStandardPolymer.expression
-            ])
-        ]))
+        if (size === StructureSize.Small) {
+            focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
+                MS.struct.modifier.exceptBy({
+                    0: MS.struct.generator.all(),
+                    by: Q.water.expression
+                })
+            ]))
+            await this.addBallAndStick(focusStructure, { quality })
+        } else {
+            await this.addBallAndStick(getStructureFromExpression(structure, MS.struct.modifier.union([
+                MS.struct.combinator.merge([
+                    Q.ligandPlusConnected.expression,
+                    Q.branchedConnectedOnly.expression,
+                    Q.disulfideBridges.expression,
+                    Q.nonStandardPolymer.expression
+                ])
+            ])), { quality })
+            focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
+                MS.struct.combinator.merge([
+                    Q.trace.expression,
+                    Q.branchedPlusConnected.expression,
+                    Q.ligandPlusConnected.expression,
+                    Q.branchedConnectedOnly.expression,
+                    Q.disulfideBridges.expression,
+                    Q.nonStandardPolymer.expression
+                ])
+            ]))
+        }
 
         this.focusCamera(focusStructure)
 
         // Write png to file
         let imagePathName = `${outPath}/${fileName}_models`
-        await this.createImage(imagePathName, isBig, isBig)
+        await this.createImage(imagePathName, size)
 
         // Finished writing to file and clear canvas
         console.log('Finished.')
@@ -444,11 +519,12 @@ export class ImageRenderer {
     async renderAll(models: ReadonlyArray<Model>, outPath: string, fileName: string) {
         // Render all models
         for (let i = 0; i < models.length; i++) {
-            await this.renderModel(models[i], outPath, fileName)
+            await this.renderModel(i + 1, models[i], outPath, fileName)
         }
 
         // Render all assemblies
-        for (let i = 0, il = models[0].symmetry.assemblies.length; i < il; i++) {
+        const assemblies = ModelSymmetry.Provider.get(models[0])?.assemblies || []
+        for (let i = 0, il = assemblies.length; i < il; i++) {
             await this.renderAssembly(i, models[0], outPath, fileName)
         }
 

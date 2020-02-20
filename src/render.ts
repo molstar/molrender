@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 mol* contributors, licensed under MIT, See LICENSE file for more info.
+ * Copyright (c) 2019-2020 mol* contributors, licensed under MIT, See LICENSE file for more info.
  *
  * @author Alexander Rose <alexander.rose@weirdbyte.de>
  * @author Jesse Liang <jesse.liang@rcsb.org>
@@ -29,7 +29,6 @@ import { Vec3 } from 'molstar/lib/mol-math/linear-algebra';
 import Expression from 'molstar/lib/mol-script/language/expression';
 import { VisualQuality } from 'molstar/lib/mol-geo/geometry/base';
 import { getStructureQuality } from 'molstar/lib/mol-repr/util';
-import { computeStructureBoundaryFromElements } from 'molstar/lib/mol-model/structure/structure/util/boundary';
 import { ColorNames } from 'molstar/lib/mol-util/color/tables';
 
 /**
@@ -69,6 +68,13 @@ function getStructureFromExpression(structure: Structure, expression: Expression
     const compiled = compile<StructureSelection>(expression)
     const selection = compiled(new QueryContext(structure))
     return StructureSelection.unionStructure(selection)
+}
+
+function getColorTheme(structure: Structure) {
+    console.log(structure.polymerUnitCount)
+    if (structure.polymerUnitCount === 1) return 'sequence-id'
+    else if (structure.polymerUnitCount < 40) return 'polymer-index'
+    else return 'polymer-id'
 }
 
 function isBigStructure(structure: Structure) {
@@ -113,14 +119,23 @@ export class ImageRenderer {
         })
         const input = InputObserver.create()
         this.canvas3d = Canvas3D.create(this.gl, input, {
+            cameraMode: 'orthographic',
             renderer: {
                 ...DefaultCanvas3DParams.renderer,
-                backgroundColor: ColorNames.white
+                backgroundColor: ColorNames.white,
+            },
+            postprocessing: {
+                ...DefaultCanvas3DParams.postprocessing,
+                outlineThreshold: 1.2,
             }
         })
-
         this.imagePass = this.canvas3d.getImagePass()
-        this.imagePass.setProps({ multiSample: { mode: 'on', sampleLevel: 3 } })
+        this.imagePass.setProps({
+            multiSample: {
+                mode: 'on',
+                sampleLevel: 3
+            }
+        })
         this.imagePass.setSize(this.width, this.height)
 
         this.reprCtx = {
@@ -136,13 +151,13 @@ export class ImageRenderer {
             color: this.reprCtx.colorThemeRegistry.create(params.colorTheme, { structure }),
             size: this.reprCtx.sizeThemeRegistry.create(params.sizeTheme, { structure })
         })
-        await repr.createOrUpdate({ ...provider.defaultValues, quality: params.quality || 'auto' }, structure).run()
+        await repr.createOrUpdate({ ...provider.defaultValues, quality: params.quality || 'auto', ignoreHydrogens: true }, structure).run()
         await this.canvas3d.add(repr)
     }
 
     async addCartoon(structure: Structure, params: Partial<ReprParams> = {}) {
         await this.addRepresentation(structure, CartoonRepresentationProvider, {
-            colorTheme: structure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id',
+            colorTheme: getColorTheme(structure),
             sizeTheme: 'uniform',
             ...params
         })
@@ -150,7 +165,7 @@ export class ImageRenderer {
 
     async addGaussianSurface(structure: Structure, params: Partial<ReprParams> = {}) {
         await this.addRepresentation(structure, GaussianSurfaceRepresentationProvider, {
-            colorTheme: structure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id',
+            colorTheme: getColorTheme(structure),
             sizeTheme: 'uniform',
             ...params
         })
@@ -158,7 +173,7 @@ export class ImageRenderer {
 
     async addMolecularSurface(structure: Structure, params: Partial<ReprParams> = {}) {
         await this.addRepresentation(structure, MolecularSurfaceRepresentationProvider, {
-            colorTheme: structure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id',
+            colorTheme: getColorTheme(structure),
             sizeTheme: 'uniform',
             ...params
         })
@@ -208,17 +223,17 @@ export class ImageRenderer {
         }
     }
 
-    focusCamera(structure: Structure, extraRadius = 0) {
+    focusCamera(structure: Structure) {
         const principalAxes = PrincipalAxes.ofPositions(getPositions(structure))
         const { origin, dirA, dirC } = principalAxes.boxAxes
-        const { sphere } = computeStructureBoundaryFromElements(structure)
+        const radius = Vec3.magnitude(dirA)
 
         // move camera far in the direction from the origin, so we get a view from the outside
         const position = Vec3()
         Vec3.scaleAndAdd(position, position, origin, 100)
         this.canvas3d.camera.setState({ position }, 0)
 
-        this.canvas3d.camera.focus(origin, sphere.radius + extraRadius, 0, dirA, dirC)
+        this.canvas3d.camera.focus(origin, radius, 0, dirA, dirC)
     }
 
     /**
@@ -264,7 +279,7 @@ export class ImageRenderer {
             ]))
         }
 
-        this.focusCamera(focusStructure, isBig ? 5 : 1)
+        this.focusCamera(focusStructure)
 
         // Write png to file
         let imagePathName = `${outPath}/${fileName}_assembly-${asmId}`
@@ -316,7 +331,7 @@ export class ImageRenderer {
             ]))
         }
 
-        this.focusCamera(focusStructure, isBig ? 5 : 1)
+        this.focusCamera(focusStructure)
 
         // Write png to file
         let imagePathName = `${outPath}/${fileName}_model-${model.modelNum}`
@@ -370,7 +385,7 @@ export class ImageRenderer {
             ]))
         }
 
-        this.focusCamera(focusStructure, isBig ? 5 : 1)
+        this.focusCamera(focusStructure)
 
         // Write png to file
         let imagePathName = `${outPath}/${fileName}_chain-${chainName}`
@@ -385,41 +400,32 @@ export class ImageRenderer {
         console.log(`Rendering ${fileName} models`)
 
         const structure = Structure.ofTrajectory(models)
-        const isBig = isBigStructure(structure)
-        const quality = getQuality(structure)
         const firstModelStructure = Structure.ofModel(models[0])
-        const colorTheme = firstModelStructure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id'
-        let focusStructure: Structure
+        const isBig = isBigStructure(firstModelStructure)
+        const quality = getQuality(firstModelStructure)
 
-        const params = { colorTheme, quality }
+        await this.addCartoon(getStructureFromExpression(structure, Q.polymer.expression), { quality, colorTheme: firstModelStructure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id' })
+        await this.addCarbohydrate(getStructureFromExpression(structure, Q.branchedPlusConnected.expression), { quality })
+        await this.addBallAndStick(getStructureFromExpression(structure, MS.struct.modifier.union([
+            MS.struct.combinator.merge([
+                Q.ligandPlusConnected.expression,
+                Q.branchedConnectedOnly.expression,
+                Q.disulfideBridges.expression,
+                Q.nonStandardPolymer.expression
+            ])
+        ])), { quality })
+        const focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
+            MS.struct.combinator.merge([
+                Q.trace.expression,
+                Q.branchedPlusConnected.expression,
+                Q.ligandPlusConnected.expression,
+                Q.branchedConnectedOnly.expression,
+                Q.disulfideBridges.expression,
+                Q.nonStandardPolymer.expression
+            ])
+        ]))
 
-        if (isBig) {
-            focusStructure = getStructureFromExpression(structure, Q.polymer.expression)
-            await this.addGaussianSurface(getStructureFromExpression(structure, Q.polymer.expression), params)
-        } else {
-            await this.addCartoon(getStructureFromExpression(structure, Q.polymer.expression), params)
-            await this.addCarbohydrate(getStructureFromExpression(structure, Q.branchedPlusConnected.expression), { quality })
-            await this.addBallAndStick(getStructureFromExpression(structure, MS.struct.modifier.union([
-                MS.struct.combinator.merge([
-                    Q.ligandPlusConnected.expression,
-                    Q.branchedConnectedOnly.expression,
-                    Q.disulfideBridges.expression,
-                    Q.nonStandardPolymer.expression
-                ])
-            ])), { quality })
-            focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
-                MS.struct.combinator.merge([
-                    Q.trace.expression,
-                    Q.branchedPlusConnected.expression,
-                    Q.ligandPlusConnected.expression,
-                    Q.branchedConnectedOnly.expression,
-                    Q.disulfideBridges.expression,
-                    Q.nonStandardPolymer.expression
-                ])
-            ]))
-        }
-
-        this.focusCamera(focusStructure, isBig ? 5 : 1)
+        this.focusCamera(focusStructure)
 
         // Write png to file
         let imagePathName = `${outPath}/${fileName}_models`

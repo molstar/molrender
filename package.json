@@ -42,7 +42,7 @@
     "@typescript-eslint/parser": "^2.19.2",
     "concurrently": "^5.1.0",
     "eslint": "^6.8.0",
-    "molstar": "^0.5.0-dev.3",
+    "molstar": "^0.5.0",
     "node-fetch": "^2.6.0",
     "typescript": "^3.7.5",
     "webpack": "^4.41.6",

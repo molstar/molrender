@@ -322,6 +322,7 @@ export class ImageRenderer {
                 focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
                     MS.struct.combinator.merge([
                         Q.trace.expression,
+                        Q.nucleic.expression,
                         Q.branchedPlusConnected.expression,
                         Q.ligandPlusConnected.expression,
                         Q.branchedConnectedOnly.expression,
@@ -381,6 +382,7 @@ export class ImageRenderer {
                 focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
                     MS.struct.combinator.merge([
                         Q.trace.expression,
+                        Q.nucleic.expression,
                         Q.branchedPlusConnected.expression,
                         Q.ligandPlusConnected.expression,
                         Q.branchedConnectedOnly.expression,
@@ -440,6 +442,7 @@ export class ImageRenderer {
                 focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
                     MS.struct.combinator.merge([
                         Q.trace.expression,
+                        Q.nucleic.expression,
                         Q.ligandPlusConnected.expression,
                         Q.disulfideBridges.expression,
                         Q.nonStandardPolymer.expression,
@@ -491,6 +494,7 @@ export class ImageRenderer {
             focusStructure = getStructureFromExpression(structure, MS.struct.modifier.union([
                 MS.struct.combinator.merge([
                     Q.trace.expression,
+                    Q.nucleic.expression,
                     Q.branchedPlusConnected.expression,
                     Q.ligandPlusConnected.expression,
                     Q.branchedConnectedOnly.expression,

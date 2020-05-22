@@ -20,8 +20,8 @@
     "watch-tsc": "tsc -watch",
     "watch-webpack": "webpack -w --mode development --display minimal",
     "preversion": "npm run test",
-    "postversion": "git push && git push --tags",
-    "prepublishOnly": "npm run test && npm run build"
+    "version": "npm run build",
+    "postversion": "git push && git push --tags"
   },
   "bin": {
     "molrender": "build/bin/molrender.js"

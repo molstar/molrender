@@ -24,7 +24,7 @@ import { ModelSymmetry } from 'molstar/lib/mol-model-formats/structure/property/
 import { RepresentationProvider } from 'molstar/lib/mol-repr/representation';
 import { compile } from 'molstar/lib/mol-script/runtime/query/compiler';
 import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
-import { StructureSelectionQueries as Q } from 'molstar/lib/mol-plugin/util/structure-selection-helper';
+import { StructureSelectionQueries as Q } from 'molstar/lib/mol-plugin-state/helpers/structure-selection-query';
 import { ImagePass } from 'molstar/lib/mol-canvas3d/passes/image';
 import { PrincipalAxes } from 'molstar/lib/mol-math/linear-algebra/matrix/principal-axes';
 import { Vec3 } from 'molstar/lib/mol-math/linear-algebra';
@@ -33,8 +33,8 @@ import { VisualQuality } from 'molstar/lib/mol-geo/geometry/base';
 import { getStructureQuality } from 'molstar/lib/mol-repr/util';
 import { ColorNames } from 'molstar/lib/mol-util/color/names';
 import { Camera } from 'molstar/lib/mol-canvas3d/camera';
-import { ajaxGet } from 'molstar/lib/mol-util/data-source';
 import { SyncRuntimeContext } from 'molstar/lib/mol-task/execution/synchronous';
+import { AssetManager } from 'molstar/lib/mol-util/assets';
 
 /**
  * Helper method to create PNG with given PNG data
@@ -135,6 +135,7 @@ export class ImageRenderer {
     reprCtx: {wegbl: any, colorThemeRegistry: any, sizeThemeRegistry: any}
     canvas3d: Canvas3D
     imagePass: ImagePass
+    assetManager = new AssetManager()
 
     constructor(private width: number, private height: number, private format: 'png' | 'jpeg') {
         this.gl = getGLContext(this.width, this.height, {
@@ -147,18 +148,31 @@ export class ImageRenderer {
         const webgl = createContext(this.gl)
         const input = InputObserver.create()
         this.canvas3d = Canvas3D.create(webgl, input, {
-            cameraMode: 'orthographic',
+            camera: {
+                mode: 'orthographic',
+                helper: {
+                    axes: { name: 'off', params: {} }
+                }
+            },
             renderer: {
                 ...DefaultCanvas3DParams.renderer,
                 backgroundColor: ColorNames.white,
             },
             postprocessing: {
-                ...DefaultCanvas3DParams.postprocessing,
-                outlineThreshold: 1.2,
+                occlusion: {
+                    name: 'off', params: {}
+                },
+                outline: {
+                    name: 'off', params: {}
+                }
             }
         })
-        this.imagePass = this.canvas3d.getImagePass()
-        this.imagePass.setProps({
+        this.imagePass = this.canvas3d.getImagePass({
+            drawPass: {
+                cameraHelper: {
+                    axes: { name: 'off', params: {} }
+                }
+            },
             multiSample: {
                 mode: 'on',
                 sampleLevel: 3
@@ -175,11 +189,11 @@ export class ImageRenderer {
 
     async addRepresentation(structure: Structure, provider: RepresentationProvider<any, any, any>, params: ReprParams) {
         if (provider.ensureCustomProperties) {
-            await provider.ensureCustomProperties({ fetch: ajaxGet, runtime: SyncRuntimeContext }, structure)
+            await provider.ensureCustomProperties.attach({ assetManager: this.assetManager, runtime: SyncRuntimeContext }, structure)
         }
         const repr = provider.factory(this.reprCtx, provider.getParams)
         repr.setTheme({
-            color: this.reprCtx.colorThemeRegistry.create(params.colorTheme, { structure }),
+            color: this.reprCtx.colorThemeRegistry.create(params.colorTheme, { structure }, { carbonByChainId: false }),
             size: this.reprCtx.sizeThemeRegistry.create(params.sizeTheme, { structure })
         })
         await repr.createOrUpdate({ ...provider.defaultValues, quality: params.quality || 'auto', ignoreHydrogens: true }, structure).run()
@@ -230,16 +244,22 @@ export class ImageRenderer {
      * Creates PNG with the current 3dcanvas data
      */
     async createImage(outPath: string, size: StructureSize) {
-        const occlusionEnable = size === StructureSize.Big
-        const outlineEnable = size === StructureSize.Big
+        const occlusion = size === StructureSize.Big ? { name: 'on' as const, params: {
+            kernelSize: 4,
+            bias: 0.5,
+            radius: 64,
+        } } : { name: 'off' as const, params: {} }
+        const outline = size === StructureSize.Big ? { name: 'on' as const, params: {
+            scale: 1,
+            threshold: 1.2,
+        } } : { name: 'off' as const, params: {} }
 
         this.canvas3d.commit(true)
 
         this.imagePass.setProps({
             postprocessing: {
-                ...this.canvas3d.props.postprocessing,
-                occlusionEnable,
-                outlineEnable
+                occlusion,
+                outline
             }
         })
 
@@ -273,12 +293,12 @@ export class ImageRenderer {
         this.canvas3d.camera.setState({ position }, 0)
 
         // tight zoom
-        this.canvas3d.camera.focus(origin, radius, radius, 0, dirA, dirC)
+        this.canvas3d.camera.focus(origin, radius, 0, dirA, dirC)
 
         // ensure nothing is clipped off in the front
         const state = Camera.copySnapshot(Camera.createDefaultSnapshot(), this.canvas3d.camera.state)
-        state.radiusNear = structure.boundary.sphere.radius
-        state.radiusFar = structure.boundary.sphere.radius
+        state.radius = structure.boundary.sphere.radius
+        state.radiusMax = structure.boundary.sphere.radius
         this.canvas3d.camera.setState(state)
     }
 

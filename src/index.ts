@@ -89,7 +89,7 @@ if (!fs.existsSync(args.out)) {
  * @param inPath path of file
  */
 export function getFileName(inPath: string) {
-    const arr = inPath.split('/')
+    const arr = inPath.split(/\/|\\/)
     return arr[arr.length - 1].split('.')[0]
 }
 

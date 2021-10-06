@@ -3,9 +3,13 @@
 [![Gitter](https://badges.gitter.im/molstar/Lobby.svg)](https://gitter.im/molstar/Lobby)
 
 ## Usage
+Molrender creates images of the following types: `model`, `assembly`, `chain`, `models`, or `all`. Either as `png` or `jpeg`.
 
-### Create image
-    molrender
+### Create all images as PNG
+    molrender all /path/to/5cbg.cif /path/to/out/
+
+### Create all images as JPEG
+    molrender all /path/to/1nmr.cif /path/to/out/ --format jpeg
 
 ## Building
 

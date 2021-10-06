@@ -11,14 +11,15 @@
     "url": "https://github.com/molstar/molrender/issues"
   },
   "scripts": {
+    "lint": "eslint .",
+    "lint-fix": "eslint . --fix",
     "test": "npm run lint",
-    "lint": "eslint ./**/*.ts",
     "build": "npm run build-tsc && npm run build-webpack",
     "build-tsc": "tsc",
     "build-webpack": "webpack --mode production",
     "watch": "concurrently --kill-others \"npm:watch-tsc\" \"npm:watch-webpack\"",
     "watch-tsc": "tsc -watch",
-    "watch-webpack": "webpack -w --mode development --display minimal",
+    "watch-webpack": "webpack -w --mode development --stats minimal",
     "preversion": "npm run test",
     "version": "npm run build",
     "postversion": "git push && git push --tags"
@@ -32,24 +33,25 @@
   "author": "Mol* Contributors",
   "license": "MIT",
   "devDependencies": {
-    "@types/argparse": "^1.0.38",
+    "@types/argparse": "^2.0.10",
     "@types/gl": "^4.1.0",
-    "@types/node": "^14.0.5",
-    "@types/pngjs": "^3.4.2",
-    "@typescript-eslint/eslint-plugin": "^2.33.0",
-    "@typescript-eslint/parser": "^2.33.0",
-    "concurrently": "^5.2.0",
-    "eslint": "^7.0.0",
-    "molstar": "^1.0.4",
-    "typescript": "^3.9.2",
-    "webpack": "^4.43.0",
-    "webpack-cli": "^3.3.11"
+    "@types/node": "^17.0.24",
+    "@types/pngjs": "^6.0.1",
+    "@typescript-eslint/eslint-plugin": "^5.19.0",
+    "@typescript-eslint/parser": "^5.19.0",
+    "acorn": "^8.7.0",
+    "concurrently": "^7.1.0",
+    "eslint": "^8.13.0",
+    "molstar": "3.5.0",
+    "typescript": "^4.6.3",
+    "webpack": "^5.72.0",
+    "webpack-cli": "^4.9.2"
   },
   "dependencies": {
-    "argparse": "^1.0.10",
-    "gl": "^4.5.0",
-    "jpeg-js": "^0.4.0",
-    "pngjs": "^3.4.0",
-    "util.promisify": "^1.0.1"
+    "argparse": "^2.0.1",
+    "gl": "^5.0.0",
+    "jpeg-js": "^0.4.3",
+    "pngjs": "^6.0.0",
+    "util.promisify": "^1.1.1"
   }
 }

@@ -199,7 +199,7 @@ export class ImageRenderer {
     imagePass: ImagePass;
     assetManager = new AssetManager();
 
-    constructor(private width: number, private height: number, private format: 'png' | 'jpeg') {
+    constructor(private width: number, private height: number, private format: 'png' | 'jpeg', private plddt: 'on' | 'single-chain' | 'off') {
         this.gl = getGLContext(this.width, this.height);
 
         const webgl = createContext(this.gl);
@@ -434,9 +434,9 @@ export class ImageRenderer {
     }
 
     private checkPlddtColorTheme(structure: Structure): 'plddt-confidence' | undefined {
-        if (PLDDTConfidenceColorThemeProvider.isApplicable({ structure }) && structure.polymerUnitCount === 1) {
-            return PLDDTConfidenceColorThemeProvider.name;
-        }
+        if (this.plddt === 'off') return;
+        if (this.plddt === 'single-chain' && structure.polymerUnitCount !== 1) return;
+        if (PLDDTConfidenceColorThemeProvider.isApplicable({ structure })) return PLDDTConfidenceColorThemeProvider.name;
     }
 
     private async render(structure: Structure, imagePathName: string, options?: { colorTheme?: string, suppressSurface?: boolean, suppressBranched?: boolean }) {

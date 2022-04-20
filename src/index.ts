@@ -45,6 +45,11 @@ function addBasicArgs(currParser: argparse.ArgumentParser) {
         help: 'image format (png or jpeg)',
         default: 'png'
     });
+    currParser.add_argument('--plddt', {
+        action: 'store',
+        help: 'color predicted structures by pLDDT (on, single-chain, or off)',
+        default: 'single-chain'
+    });
 }
 
 const modelParser = subparsers.add_parser('model', { add_help: true });
@@ -95,7 +100,7 @@ export function getFileName(inPath: string) {
 }
 
 async function main() {
-    const renderer = new ImageRenderer(args.width, args.height, args.format);
+    const renderer = new ImageRenderer(args.width, args.height, args.format, args.plddt);
 
     const fileName = getFileName(args.in);
     const cif = await readCifFile(args.in);

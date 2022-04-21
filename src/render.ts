@@ -200,7 +200,13 @@ export class ImageRenderer {
     assetManager = new AssetManager();
 
     constructor(private width: number, private height: number, private format: 'png' | 'jpeg', private plddt: 'on' | 'single-chain' | 'off') {
-        this.gl = getGLContext(this.width, this.height);
+        this.gl = getGLContext(this.width, this.height, {
+            alpha: false,
+            antialias: true,
+            depth: true,
+            preserveDrawingBuffer: true,
+            premultipliedAlpha: false
+        });
 
         const webgl = createContext(this.gl);
         this.webgl = webgl;

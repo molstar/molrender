@@ -445,7 +445,6 @@ export class ImageRenderer {
         let focusStructure: Structure;
 
         // TODO fix lighting
-        // TODO fix React 18 issues
         // TODO fix missing interactions around ions
         if (!options?.suppressSurface && size === StructureSize.Big) {
             focusStructure = getStructureFromExpression(structure, Q.polymer.expression);

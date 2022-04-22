@@ -1,8 +1,9 @@
 /**
- * Copyright (c) 2019-2020 mol* contributors, licensed under MIT, See LICENSE file for more info.
+ * Copyright (c) 2019-2022 mol* contributors, licensed under MIT, See LICENSE file for more info.
  *
  * @author Alexander Rose <alexander.rose@weirdbyte.de>
  * @author Jesse Liang <jesse.liang@rcsb.org>
+ * @author Sebastian Bittrich <sebastian.bittrich@rcsb.org>
  */
 
 import getGLContext = require('gl');
@@ -192,7 +193,6 @@ const focusExpressionNoBranched = MS.struct.modifier.union([
  * ImageRenderer class used to initialize 3dcanvas for rendering
  */
 export class ImageRenderer {
-    gl: WebGLRenderingContext;
     webgl: WebGLContext;
     reprCtx: RepresentationContext;
     canvas3d: Canvas3D;
@@ -200,21 +200,19 @@ export class ImageRenderer {
     assetManager = new AssetManager();
 
     constructor(private width: number, private height: number, private format: 'png' | 'jpeg', private plddt: 'on' | 'single-chain' | 'off') {
-        this.gl = getGLContext(this.width, this.height, {
+        this.webgl = createContext(getGLContext(this.width, this.height, {
             alpha: false,
             antialias: true,
             depth: true,
             preserveDrawingBuffer: true,
             premultipliedAlpha: false
-        });
+        }));
 
-        const webgl = createContext(this.gl);
-        this.webgl = webgl;
         const input = InputObserver.create();
         const attribs = { ...DefaultAttribs };
         const passes = new Passes(this.webgl, attribs);
 
-        this.canvas3d = Canvas3D.create({ webgl, input, passes, attribs } as Canvas3DContext, {
+        this.canvas3d = Canvas3D.create({ webgl: this.webgl, input, passes, attribs } as Canvas3DContext, {
             camera: {
                 mode: 'orthographic',
                 helper: {
@@ -275,7 +273,7 @@ export class ImageRenderer {
             color: this.reprCtx.colorThemeRegistry.create(params.colorTheme, { structure }, { carbonByChainId: false }),
             size: this.reprCtx.sizeThemeRegistry.create(params.sizeTheme, { structure })
         });
-        await repr.createOrUpdate({ ...provider.defaultValues, quality: params.quality || 'auto', ignoreHydrogens: true, ignoreLight: true }, structure).run();
+        await repr.createOrUpdate({ ...provider.defaultValues, quality: params.quality || 'auto', ignoreHydrogens: true }, structure).run();
         this.canvas3d.add(repr);
     }
 
@@ -323,6 +321,11 @@ export class ImageRenderer {
      * Creates PNG with the current 3dcanvas data
      */
     async createImage(outPath: string, size: StructureSize) {
+        const occlusion = size === StructureSize.Big ? { name: 'on' as const, params: {
+            kernelSize: 4,
+            bias: 0.5,
+            radius: 64,
+        } } : { name: 'off' as const, params: {} };
         const outline = size === StructureSize.Big ? { name: 'on' as const, params: {
             scale: 1,
             threshold: 1.2,
@@ -333,7 +336,7 @@ export class ImageRenderer {
 
         this.imagePass.setProps({
             postprocessing: {
-                ...this.imagePass.props.postprocessing,
+                occlusion,
                 outline,
                 antialiasing
             }
@@ -451,7 +454,6 @@ export class ImageRenderer {
         let focusStructure: Structure;
 
         // TODO fix lighting
-        // TODO fix missing interactions around ions
         if (!options?.suppressSurface && size === StructureSize.Big) {
             focusStructure = getStructureFromExpression(structure, Q.polymer.expression);
             await this.addGaussianSurface(focusStructure, { quality });

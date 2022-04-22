@@ -1,8 +1,9 @@
 /**
- * Copyright (c) 2019 mol* contributors, licensed under MIT, See LICENSE file for more info.
+ * Copyright (c) 2019-2022 mol* contributors, licensed under MIT, See LICENSE file for more info.
  *
  * @author Jesse Liang <jesse.liang@rcsb.org>
  * @author Alexander Rose <alexander.rose@weirdbyte.de>
+ * @author Sebastian Bittrich <sebastian.bittrich@rcsb.org>
  */
 
 import * as argparse from 'argparse';

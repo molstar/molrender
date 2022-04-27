@@ -270,7 +270,7 @@ export class ImageRenderer {
 
         const repr = provider.factory(this.reprCtx, provider.getParams);
         repr.setTheme({
-            color: this.reprCtx.colorThemeRegistry.create(params.colorTheme, { structure }, { carbonByChainId: false }),
+            color: this.reprCtx.colorThemeRegistry.create(params.colorTheme, { structure }, { carbonColor: { name: 'element-symbol' } }),
             size: this.reprCtx.sizeThemeRegistry.create(params.sizeTheme, { structure })
         });
         await repr.createOrUpdate({ ...provider.defaultValues, quality: params.quality || 'auto', ignoreHydrogens: true }, structure).run();
@@ -322,9 +322,11 @@ export class ImageRenderer {
      */
     async createImage(outPath: string, size: StructureSize) {
         const occlusion = size === StructureSize.Big ? { name: 'on' as const, params: {
-            kernelSize: 4,
-            bias: 0.5,
+            samples: 32,
             radius: 64,
+            bias: 0.5,
+            blurKernelSize: 4,
+            resolutionScale: 1,
         } } : { name: 'off' as const, params: {} };
         const outline = size === StructureSize.Big ? { name: 'on' as const, params: {
             scale: 1,
@@ -453,7 +455,6 @@ export class ImageRenderer {
         const quality = getQuality(structure);
         let focusStructure: Structure;
 
-        // TODO fix lighting
         if (!options?.suppressSurface && size === StructureSize.Big) {
             focusStructure = getStructureFromExpression(structure, Q.polymer.expression);
             await this.addGaussianSurface(focusStructure, { quality });

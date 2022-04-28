@@ -48,6 +48,8 @@ import DefaultAttribs = Canvas3DContext.DefaultAttribs;
 import { PixelData } from 'molstar/lib/mol-util/image';
 import { ColorNames } from 'molstar/lib/mol-util/color/names';
 import { PLDDTConfidenceColorThemeProvider } from 'molstar/lib/extensions/model-archive/quality-assessment/color/plddt';
+import { FocusExpression, FocusExpressionNoBranched,
+    RepresentationExpression, RepresentationExpressionNoBranched, SmallFocusExpression } from './expressions';
 
 /**
  * Helper method to create PNG with given PNG data
@@ -138,56 +140,6 @@ interface ReprParams {
     sizeTheme: string,
     quality?: VisualQuality
 }
-
-const smallFocusExpression = MS.struct.modifier.union([
-    MS.struct.modifier.exceptBy({
-        0: MS.struct.generator.all(),
-        by: Q.water.expression
-    })
-]);
-
-const representationExpression = MS.struct.modifier.union([
-    MS.struct.combinator.merge([
-        Q.ion.expression,
-        Q.ligandPlusConnected.expression,
-        Q.branchedConnectedOnly.expression,
-        Q.disulfideBridges.expression,
-        Q.nonStandardPolymer.expression
-    ])
-]);
-
-const representationExpressionNoBranched = MS.struct.modifier.union([
-    MS.struct.combinator.merge([
-        Q.ion.expression,
-        Q.ligandPlusConnected.expression,
-        Q.disulfideBridges.expression,
-        Q.nonStandardPolymer.expression
-    ])
-]);
-
-const focusExpression = MS.struct.modifier.union([
-    MS.struct.combinator.merge([
-        Q.trace.expression,
-        Q.nucleic.expression,
-        Q.branchedPlusConnected.expression,
-        Q.ion.expression,
-        Q.ligandPlusConnected.expression,
-        Q.branchedConnectedOnly.expression,
-        Q.disulfideBridges.expression,
-        Q.nonStandardPolymer.expression
-    ])
-]);
-
-const focusExpressionNoBranched = MS.struct.modifier.union([
-    MS.struct.combinator.merge([
-        Q.trace.expression,
-        Q.nucleic.expression,
-        Q.ion.expression,
-        Q.ligandPlusConnected.expression,
-        Q.disulfideBridges.expression,
-        Q.nonStandardPolymer.expression
-    ])
-]);
 
 /**
  * ImageRenderer class used to initialize 3dcanvas for rendering
@@ -463,11 +415,11 @@ export class ImageRenderer {
             await this.addCartoon(getStructureFromExpression(structure, Q.polymer.expression), p);
             if (!options?.suppressBranched) await this.addCarbohydrate(getStructureFromExpression(structure, Q.branchedPlusConnected.expression), { quality });
             if (size === StructureSize.Small) {
-                focusStructure = getStructureFromExpression(structure, smallFocusExpression);
+                focusStructure = getStructureFromExpression(structure, SmallFocusExpression);
                 await this.addBallAndStick(focusStructure, { quality });
             } else {
-                focusStructure = getStructureFromExpression(structure, options?.suppressBranched ? focusExpressionNoBranched : focusExpression);
-                await this.addBallAndStick(getStructureFromExpression(structure, options?.suppressBranched ? representationExpressionNoBranched : representationExpression), { quality });
+                focusStructure = getStructureFromExpression(structure, options?.suppressBranched ? FocusExpressionNoBranched : FocusExpression);
+                await this.addBallAndStick(getStructureFromExpression(structure, options?.suppressBranched ? RepresentationExpressionNoBranched : RepresentationExpression), { quality });
             }
         }
 

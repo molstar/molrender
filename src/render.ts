@@ -153,11 +153,11 @@ export class ImageRenderer {
 
     constructor(private width: number, private height: number, private format: 'png' | 'jpeg', private plddt: 'on' | 'single-chain' | 'off') {
         this.webgl = createContext(getGLContext(this.width, this.height, {
-            alpha: false,
             antialias: true,
-            depth: true,
             preserveDrawingBuffer: true,
-            premultipliedAlpha: false
+            alpha: true, // the renderer requires an alpha channel
+            depth: true, // the renderer requires a depth buffer
+            premultipliedAlpha: true, // the renderer outputs PMA
         }));
 
         const input = InputObserver.create();
@@ -197,7 +197,7 @@ export class ImageRenderer {
             },
             multiSample: {
                 mode: 'on',
-                sampleLevel: 3
+                sampleLevel: 4
             }
         });
         this.imagePass.setSize(this.width, this.height);
@@ -275,14 +275,14 @@ export class ImageRenderer {
     async createImage(outPath: string, size: StructureSize) {
         const occlusion = size === StructureSize.Big ? { name: 'on' as const, params: {
             samples: 32,
-            radius: 64,
-            bias: 0.5,
-            blurKernelSize: 4,
+            radius: 5,
+            bias: 0.8,
+            blurKernelSize: 15,
             resolutionScale: 1,
         } } : { name: 'off' as const, params: {} };
         const outline = size === StructureSize.Big ? { name: 'on' as const, params: {
             scale: 1,
-            threshold: 1.2,
+            threshold: 0.33,
         } } : { name: 'off' as const, params: {} };
         const antialiasing = { name: 'off' as const, params: {} };
 

@@ -35,16 +35,16 @@
   "devDependencies": {
     "@types/argparse": "^2.0.10",
     "@types/gl": "^4.1.0",
-    "@types/node": "^17.0.25",
+    "@types/node": "^17.0.31",
     "@types/pngjs": "^6.0.1",
-    "@types/react": "^18.0.6",
-    "@types/react-dom": "^18.0.2",
-    "@typescript-eslint/eslint-plugin": "^5.20.0",
-    "@typescript-eslint/parser": "^5.20.0",
-    "acorn": "^8.7.0",
+    "@types/react": "^18.0.8",
+    "@types/react-dom": "^18.0.3",
+    "@typescript-eslint/eslint-plugin": "^5.21.0",
+    "@typescript-eslint/parser": "^5.21.0",
+    "acorn": "^8.7.1",
     "concurrently": "^7.1.0",
-    "eslint": "^8.13.0",
-    "typescript": "^4.6.3",
+    "eslint": "^8.14.0",
+    "typescript": "^4.6.4",
     "webpack": "^5.72.0",
     "webpack-cli": "^4.9.2"
   },
@@ -52,7 +52,7 @@
     "argparse": "^2.0.1",
     "gl": "^5.0.0",
     "jpeg-js": "^0.4.3",
-    "molstar": "^3.7.0",
+    "molstar": "^3.8.0",
     "pngjs": "^6.0.0",
     "util.promisify": "^1.1.1"
   }

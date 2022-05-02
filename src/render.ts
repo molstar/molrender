@@ -49,7 +49,7 @@ import { PixelData } from 'molstar/lib/mol-util/image';
 import { ColorNames } from 'molstar/lib/mol-util/color/names';
 import { PLDDTConfidenceColorThemeProvider } from 'molstar/lib/extensions/model-archive/quality-assessment/color/plddt';
 import { FocusExpression, FocusExpressionNoBranched,
-    RepresentationExpression, RepresentationExpressionNoBranched, SmallFocusExpression } from './expressions';
+    RepresentationExpression, RepresentationExpressionNoBranched, SmallFocusExpression } from './expression';
 
 /**
  * Helper method to create PNG with given PNG data

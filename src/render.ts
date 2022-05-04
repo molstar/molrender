@@ -138,7 +138,8 @@ function getQuality(structure: Structure): VisualQuality {
 interface ReprParams {
     colorTheme: string,
     sizeTheme: string,
-    quality?: VisualQuality
+    quality?: VisualQuality,
+    radiusOffset?: number
 }
 
 /**
@@ -174,6 +175,12 @@ export class ImageRenderer {
                     name: 'off', params: {}
                 },
                 manualReset: false
+            },
+            cameraFog: {
+                name: 'on',
+                params: {
+                    intensity: 50
+                }
             },
             renderer: {
                 ...DefaultCanvas3DParams.renderer,
@@ -225,7 +232,9 @@ export class ImageRenderer {
             color: this.reprCtx.colorThemeRegistry.create(params.colorTheme, { structure }, { carbonColor: { name: 'element-symbol' } }),
             size: this.reprCtx.sizeThemeRegistry.create(params.sizeTheme, { structure })
         });
-        await repr.createOrUpdate({ ...provider.defaultValues, quality: params.quality || 'auto', ignoreHydrogens: true }, structure).run();
+        const props = { ...provider.defaultValues, quality: params.quality || 'auto', ignoreHydrogens: true };
+        if (params.radiusOffset) Object.assign(props, { radiusOffset: params.radiusOffset });
+        await repr.createOrUpdate(props, structure).run();
         this.canvas3d.add(repr);
     }
 
@@ -241,6 +250,7 @@ export class ImageRenderer {
         await this.addRepresentation(structure, GaussianSurfaceRepresentationProvider, {
             colorTheme: getColorTheme(structure),
             sizeTheme: 'uniform',
+            radiusOffset: 0.75,
             ...params
         });
     }
@@ -282,7 +292,7 @@ export class ImageRenderer {
         } } : { name: 'off' as const, params: {} };
         const outline = size === StructureSize.Big ? { name: 'on' as const, params: {
             scale: 1,
-            threshold: 0.33,
+            threshold: 0.95,
         } } : { name: 'off' as const, params: {} };
         const antialiasing = { name: 'off' as const, params: {} };
 

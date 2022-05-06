@@ -407,8 +407,10 @@ export class ImageRenderer {
 
         const structure = await Structure.ofTrajectory(models, RuntimeContext.Synchronous);
         const firstModelStructure = Structure.ofModel(models.representative);
+        const quality = getQuality(firstModelStructure);
+        const structureSize = getStructureSize(firstModelStructure);
         const colorTheme = firstModelStructure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id';
-        await this.render(structure, `${outPath}/${fileName}_models`, { colorTheme, suppressSurface: true });
+        await this.render(structure, `${outPath}/${fileName}_models`, { colorTheme, suppressSurface: true, structureSize, quality });
     }
 
     private checkPlddtColorTheme(structure: Structure): 'plddt-confidence' | undefined {
@@ -417,9 +419,9 @@ export class ImageRenderer {
         if (PLDDTConfidenceColorThemeProvider.isApplicable({ structure })) return PLDDTConfidenceColorThemeProvider.name;
     }
 
-    private async render(structure: Structure, imagePathName: string, options?: { colorTheme?: string, suppressSurface?: boolean, suppressBranched?: boolean }) {
-        const size = getStructureSize(structure);
-        const quality = getQuality(structure);
+    private async render(structure: Structure, imagePathName: string, options?: { colorTheme?: string, suppressSurface?: boolean, suppressBranched?: boolean, structureSize?: StructureSize, quality?: VisualQuality }) {
+        const size = options?.structureSize ?? getStructureSize(structure);
+        const quality = options?.quality ?? getQuality(structure);
         let focusStructure: Structure;
 
         if (!options?.suppressSurface && size === StructureSize.Big) {

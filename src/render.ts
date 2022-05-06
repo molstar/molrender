@@ -194,7 +194,13 @@ export class ImageRenderer {
                     name: 'off', params: {}
                 },
                 antialiasing: {
-                    name: 'off', params: {}
+                    name: 'fxaa',
+                    params: {
+                        edgeThresholdMin: 0.0312,
+                        edgeThresholdMax: 0.063,
+                        iterations: 12,
+                        subpixelQuality: 0.3
+                    }
                 }
             }
         });
@@ -294,15 +300,14 @@ export class ImageRenderer {
             scale: 1,
             threshold: 0.95,
         } } : { name: 'off' as const, params: {} };
-        const antialiasing = { name: 'off' as const, params: {} };
 
         this.canvas3d.commit(true);
 
         this.imagePass.setProps({
             postprocessing: {
-                occlusion,
+                ...this.canvas3d.props.postprocessing,
                 outline,
-                antialiasing
+                occlusion
             }
         });
 

@@ -1,6 +1,7 @@
 [![License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](./LICENSE)
 [![npm version](https://badge.fury.io/js/molrender.svg)](https://www.npmjs.com/package/molrender)
 [![Gitter](https://badges.gitter.im/molstar/Lobby.svg)](https://gitter.im/molstar/Lobby)
+[![Changelog](https://img.shields.io/badge/changelog--lightgrey.svg?style=flat)](https://github.com/molstar/molrender/blob/master/CHANGELOG.md)
 
 ## Usage
 Molrender creates images of the following types: `model`, `assembly`, `chain`, `models`, or `all`. Either as `png` or `jpeg`.

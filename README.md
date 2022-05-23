@@ -3,6 +3,8 @@
 [![Gitter](https://badges.gitter.im/molstar/Lobby.svg)](https://gitter.im/molstar/Lobby)
 [![Changelog](https://img.shields.io/badge/changelog--lightgrey.svg?style=flat)](https://github.com/molstar/molrender/blob/master/CHANGELOG.md)
 
+![alt example](https://raw.githubusercontent.com/molstar/molrender/master/4hhb_assembly-1.png)
+
 ## Usage
 Molrender creates images of the following types: `model`, `assembly`, `chain`, `models`, or `all`. Either as `png` or `jpeg`.
 

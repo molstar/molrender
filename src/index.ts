@@ -1,87 +1,94 @@
 /**
- * Copyright (c) 2019 mol* contributors, licensed under MIT, See LICENSE file for more info.
+ * Copyright (c) 2019-2022 mol* contributors, licensed under MIT, See LICENSE file for more info.
  *
  * @author Jesse Liang <jesse.liang@rcsb.org>
  * @author Alexander Rose <alexander.rose@weirdbyte.de>
+ * @author Sebastian Bittrich <sebastian.bittrich@rcsb.org>
  */
 
-import * as argparse from 'argparse'
-import fs = require('fs')
-import { ImageRenderer } from './render'
+import * as argparse from 'argparse';
+import fs = require('fs');
+import { ImageRenderer } from './render';
 import { CifFrame } from 'molstar/lib/mol-io/reader/cif';
-import { getModels, readCifFile } from './util';
+import { getTrajectory, readCifFile } from './util';
+import { Task } from 'molstar/lib/mol-task';
 
 const parser = new argparse.ArgumentParser({
-    addHelp: true,
+    add_help: true,
     description: 'Render images of a structure'
 });
-const subparsers = parser.addSubparsers({
+const subparsers = parser.add_subparsers({
     title: 'subcommands',
     dest: 'render'
 });
 
-function addBasicArgs(currParser: argparse.ArgumentParser, isDir: boolean) {
-    currParser.addArgument([ 'in' ], {
+function addBasicArgs(currParser: argparse.ArgumentParser) {
+    currParser.add_argument('in', {
         action: 'store',
         help: 'path to mmCIF file'
-    })
-    currParser.addArgument([ 'out' ], {
+    });
+    currParser.add_argument('out', {
         action: 'store',
         help: 'output directory for images'
     });
-    currParser.addArgument([ '--width' ], {
+    currParser.add_argument('--width', {
         action: 'store',
         help: 'image height',
-        defaultValue: 2048
+        default: 2048
     });
-    currParser.addArgument([ '--height' ], {
+    currParser.add_argument('--height', {
         action: 'store',
         help: 'image width',
-        defaultValue: 1536
+        default: 1536
     });
-    currParser.addArgument([ '--format' ], {
+    currParser.add_argument('--format', {
         action: 'store',
         help: 'image format (png or jpeg)',
-        defaultValue: 'png'
+        default: 'png'
+    });
+    currParser.add_argument('--plddt', {
+        action: 'store',
+        help: 'color predicted structures by pLDDT (on, single-chain, or off)',
+        default: 'single-chain'
     });
 }
 
-const modelParser = subparsers.addParser('model', { addHelp: true });
-addBasicArgs(modelParser, false)
-modelParser.addArgument([ 'modIndex' ], {
+const modelParser = subparsers.add_parser('model', { add_help: true });
+addBasicArgs(modelParser);
+modelParser.add_argument('modIndex', {
     action: 'store',
     help: 'model index'
 });
 
-const assmblyParser = subparsers.addParser('assembly', { addHelp: true })
-addBasicArgs(assmblyParser, false)
-assmblyParser.addArgument([ 'asmIndex' ], {
+const assmblyParser = subparsers.add_parser('assembly', { add_help: true });
+addBasicArgs(assmblyParser);
+assmblyParser.add_argument('asmIndex', {
     action: 'store',
     help: 'assembly index'
 });
 
-const chainParser = subparsers.addParser('chain', { addHelp: true })
-addBasicArgs(chainParser, false)
-chainParser.addArgument([ 'chainName' ], {
+const chainParser = subparsers.add_parser('chain', { add_help: true });
+addBasicArgs(chainParser);
+chainParser.add_argument('chainName', {
     action: 'store',
     help: 'chain name'
 });
 
-const modelsParser = subparsers.addParser('models', { addHelp: true })
-addBasicArgs(modelsParser, false)
+const modelsParser = subparsers.add_parser('models', { add_help: true });
+addBasicArgs(modelsParser);
 
-const allParser = subparsers.addParser('all', { addHelp: true })
-addBasicArgs(allParser, false)
+const allParser = subparsers.add_parser('all', { add_help: true });
+addBasicArgs(allParser);
 
-const args = parser.parseArgs();
+const args = parser.parse_args();
 
 if (!fs.existsSync(args.in)) {
-    console.error(`Input path "${args.in}" does not exist`)
-    process.exit(1)
+    console.error(`Input path "${args.in}" does not exist`);
+    process.exit(1);
 }
 
 if (!fs.existsSync(args.out)) {
-    fs.mkdirSync(args.out, { recursive: true })
+    fs.mkdirSync(args.out, { recursive: true });
 }
 
 /**
@@ -89,37 +96,37 @@ if (!fs.existsSync(args.out)) {
  * @param inPath path of file
  */
 export function getFileName(inPath: string) {
-    const arr = inPath.split(/\/|\\/)
-    return arr[arr.length - 1].split('.')[0]
+    const arr = inPath.split(/[\/\\]/);
+    return arr[arr.length - 1].split('.')[0];
 }
 
 async function main() {
-    const renderer = new ImageRenderer(args.width, args.height, args.format)
+    const renderer = new ImageRenderer(args.width, args.height, args.format, args.plddt);
 
-    const fileName = getFileName(args.in)
-    const cif = await readCifFile(args.in)
-    const models = await getModels(cif as CifFrame)
+    const fileName = getFileName(args.in);
+    const cif = await readCifFile(args.in);
+    const trajectory = await getTrajectory(cif as CifFrame);
 
     switch (args.render) {
         case 'all':
-            await renderer.renderAll(models, args.out, fileName)
-            break
+            await renderer.renderAll(trajectory, args.out, fileName);
+            break;
         case 'chain':
-            await renderer.renderChain(args.chainName, models[0], args.out, fileName)
-            break
+            await renderer.renderChain(args.chainName, await Task.resolveInContext(trajectory.representative), args.out, fileName);
+            break;
         case 'model':
-            await renderer.renderModel(args.modIndex + 1, models[args.modIndex], args.out, fileName)
-            break
+            await renderer.renderModel(+args.modIndex + 1, await Task.resolveInContext(trajectory.getFrameAtIndex(args.modIndex)), args.out, fileName);
+            break;
         case 'assembly':
-            await renderer.renderAssembly(args.asmIndex, models[0], args.out, fileName)
-            break
+            await renderer.renderAssembly(args.asmIndex, await Task.resolveInContext(trajectory.representative), args.out, fileName);
+            break;
         case 'models':
-            await renderer.renderModels(models, args.out, fileName)
-            break
+            await renderer.renderModels(trajectory, args.out, fileName);
+            break;
     }
 }
 
 main().catch((error) => {
-    console.error(error)
-    process.exit(1)
-})
+    console.error(error);
+    process.exit(1);
+});

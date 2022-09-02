@@ -6,6 +6,8 @@
  * @author Sebastian Bittrich <sebastian.bittrich@rcsb.org>
  */
 
+//This is my branch
+
 import getGLContext = require('gl');
 import fs = require('fs');
 import { PNG } from 'pngjs';

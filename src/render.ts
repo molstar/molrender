@@ -6,8 +6,6 @@
  * @author Sebastian Bittrich <sebastian.bittrich@rcsb.org>
  */
 
-//This is my branch
-
 import getGLContext = require('gl');
 import fs = require('fs');
 import { PNG } from 'pngjs';
@@ -346,6 +344,7 @@ export class ImageRenderer {
     }
 
     focusCamera(structure: Structure) {
+        this.canvas3d.camera.setState(Camera.createDefaultSnapshot());
         const principalAxes = PrincipalAxes.ofPositions(getPositions(structure));
         const { origin, dirA, dirC } = principalAxes.boxAxes;
         const radius = Vec3.magnitude(dirA);

@@ -50,6 +50,7 @@ import { ColorNames } from 'molstar/lib/mol-util/color/names';
 import { PLDDTConfidenceColorThemeProvider } from 'molstar/lib/extensions/model-archive/quality-assessment/color/plddt';
 import { FocusExpression, FocusExpressionNoBranched,
     RepresentationExpression, RepresentationExpressionNoBranched, SmallFocusExpression } from './expression';
+import { FocusFactoryI } from './focus-camera/focus-factory-interface';
 
 /**
  * Helper method to create PNG with given PNG data
@@ -67,7 +68,7 @@ async function writeJpegFile(jpeg: JPEG.BufferRet, outPath: string) {
 }
 
 const tmpMatrixPos = Vec3.zero();
-function getPositions(structure: Structure) {
+export function getPositions(structure: Structure) {
     const positions = new Float32Array(structure.elementCount * 3);
     for (let i = 0, m = 0, il = structure.units.length; i < il; ++i) {
         const unit = structure.units[i];
@@ -152,7 +153,7 @@ export class ImageRenderer {
     imagePass: ImagePass;
     assetManager = new AssetManager();
 
-    constructor(private width: number, private height: number, private format: 'png' | 'jpeg', private plddt: 'on' | 'single-chain' | 'off') {
+    constructor(private width: number, private height: number, private format: 'png' | 'jpeg', private plddt: 'on' | 'single-chain' | 'off',focusFactory?: FocusFactoryI) {
         this.webgl = createContext(getGLContext(this.width, this.height, {
             antialias: true,
             preserveDrawingBuffer: true,
@@ -161,6 +162,8 @@ export class ImageRenderer {
             premultipliedAlpha: true, // the renderer outputs PMA
         }));
 
+        if(focusFactory) this.focusCamera = focusFactory.getFocus(this);
+        
         const input = InputObserver.create();
         const attribs = { ...DefaultAttribs };
         const passes = new Passes(this.webgl, attribs);

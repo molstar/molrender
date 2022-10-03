@@ -347,7 +347,10 @@ export class ImageRenderer {
     }
 
     focusCamera(structure: Structure) {
-        this.canvas3d.camera.setState(Camera.createDefaultSnapshot());
+        this.canvas3d.camera.setState({
+            ...Camera.createDefaultSnapshot(),
+            mode:"orthographic"
+        });
         const principalAxes = PrincipalAxes.ofPositions(getPositions(structure));
         const { origin, dirA, dirC } = principalAxes.boxAxes;
         const radius = Vec3.magnitude(dirA);

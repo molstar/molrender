@@ -10,7 +10,10 @@ export class FocusFirstResidue implements FocusFactoryI {
         
         return (structure: Structure) => {
 
-            imageRender.canvas3d.camera.setState(Camera.createDefaultSnapshot());
+            imageRender.canvas3d.camera.setState({
+                ...Camera.createDefaultSnapshot(),
+                mode:"orthographic"
+            });
             const caPositions=getPositions(structure)
             const principalAxes = PrincipalAxes.ofPositions(caPositions);
             
@@ -43,9 +46,7 @@ export class FocusFirstResidue implements FocusFactoryI {
             if(dirA[1]<=0){
                 Vec3.negate(imageRender.canvas3d.camera.up,imageRender.canvas3d.camera.up)
             }
-            imageRender.canvas3d.camera.setState({mode:'orthographic'});
-
-             imageRender.canvas3d.camera.focus(origin, radius, 0, dirA,dirC);
+            imageRender.canvas3d.camera.focus(origin, radius, 0, dirA,dirC);
             // ensure nothing is clipped off in the front
             const state = Camera.copySnapshot(Camera.createDefaultSnapshot(), imageRender.canvas3d.camera.state);
             state.radius = structure.boundary.sphere.radius;

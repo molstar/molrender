@@ -43,7 +43,8 @@ export class FocusFirstResidue implements FocusFactoryI {
             if(Vec3.dot(deltaDistance,dirC)<=0){
                 Vec3.negate(imageRender.canvas3d.camera.position,position)
             }
-            if(dirA[1]<=0){
+            const up = Vec3.create(0, 1, 0);
+            if(Vec3.dot(up,dirA)<=0){
                 Vec3.negate(imageRender.canvas3d.camera.up,imageRender.canvas3d.camera.up)
             }
             imageRender.canvas3d.camera.focus(origin, radius, 0, dirA,dirC);

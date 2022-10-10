@@ -153,7 +153,7 @@ export class ImageRenderer {
     imagePass: ImagePass;
     assetManager = new AssetManager();
 
-    constructor(private width: number, private height: number, private format: 'png' | 'jpeg', private plddt: 'on' | 'single-chain' | 'off',focusFactory?: FocusFactoryI) {
+    constructor(private width: number, private height: number, private format: 'png' | 'jpeg', private plddt: 'on' | 'single-chain' | 'off', focusFactory?: FocusFactoryI) {
         this.webgl = createContext(getGLContext(this.width, this.height, {
             antialias: true,
             preserveDrawingBuffer: true,
@@ -162,8 +162,8 @@ export class ImageRenderer {
             premultipliedAlpha: true, // the renderer outputs PMA
         }));
 
-        if(focusFactory) this.focusCamera = focusFactory.getFocus(this);
-        
+        if (focusFactory) this.focusCamera = focusFactory.getFocus(this);
+
         const input = InputObserver.create();
         const attribs = { ...DefaultAttribs };
         const passes = new Passes(this.webgl, attribs);
@@ -349,7 +349,7 @@ export class ImageRenderer {
     focusCamera(structure: Structure) {
         this.canvas3d.camera.setState({
             ...Camera.createDefaultSnapshot(),
-            mode:"orthographic"
+            mode: 'orthographic'
         });
         const principalAxes = PrincipalAxes.ofPositions(getPositions(structure));
         const { origin, dirA, dirC } = principalAxes.boxAxes;

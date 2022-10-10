@@ -102,7 +102,7 @@ export function getFileName(inPath: string) {
 }
 
 async function main() {
-    const renderer = new ImageRenderer(args.width, args.height, args.format, args.plddt,new FocusFirstResidue());
+    const renderer = new ImageRenderer(args.width, args.height, args.format, args.plddt, new FocusFirstResidue());
 
     const fileName = getFileName(args.in);
     const cif = await readCifFile(args.in);

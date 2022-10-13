@@ -4,6 +4,7 @@
  * @author Jesse Liang <jesse.liang@rcsb.org>
  * @author Alexander Rose <alexander.rose@weirdbyte.de>
  * @author Sebastian Bittrich <sebastian.bittrich@rcsb.org>
+ * @author Ke Ma <mark.ma@rcsb.org>
  */
 
 import * as argparse from 'argparse';

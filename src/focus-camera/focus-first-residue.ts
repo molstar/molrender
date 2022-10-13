@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2022 mol* contributors, licensed under MIT, See LICENSE file for more info.
+ *
+ * @author Ke Ma <mark.ma@rcsb.org>
+ */
+
 import { Camera } from 'molstar/lib/mol-canvas3d/camera';
 import { Structure } from 'molstar/lib/mol-model/structure';
 import { FocusFactoryI } from './focus-factory-interface';

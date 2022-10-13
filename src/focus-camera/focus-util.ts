@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2022 mol* contributors, licensed under MIT, See LICENSE file for more info.
+ *
+ * @author Ke Ma <mark.ma@rcsb.org>
+ */
+
 import { Vec3 } from 'molstar/lib/mol-math/linear-algebra';
 
 export function calculateDisplacement(positions: Float32Array, origin: Vec3, normalDir: Vec3) {

@@ -4,6 +4,7 @@
  * @author Alexander Rose <alexander.rose@weirdbyte.de>
  * @author Jesse Liang <jesse.liang@rcsb.org>
  * @author Sebastian Bittrich <sebastian.bittrich@rcsb.org>
+ * @author Ke Ma <mark.ma@rcsb.org>
  */
 
 import getGLContext = require('gl');

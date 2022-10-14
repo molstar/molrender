@@ -4,6 +4,7 @@
  * @author Jesse Liang <jesse.liang@rcsb.org>
  * @author Alexander Rose <alexander.rose@weirdbyte.de>
  * @author Sebastian Bittrich <sebastian.bittrich@rcsb.org>
+ * @author Ke Ma <mark.ma@rcsb.org>
  */
 
 import * as argparse from 'argparse';
@@ -12,6 +13,7 @@ import { ImageRenderer } from './render';
 import { CifFrame } from 'molstar/lib/mol-io/reader/cif';
 import { getTrajectory, readCifFile } from './util';
 import { Task } from 'molstar/lib/mol-task';
+import { FocusFirstResidue } from './focus-camera/focus-first-residue';
 
 const parser = new argparse.ArgumentParser({
     add_help: true,
@@ -101,7 +103,7 @@ export function getFileName(inPath: string) {
 }
 
 async function main() {
-    const renderer = new ImageRenderer(args.width, args.height, args.format, args.plddt);
+    const renderer = new ImageRenderer(args.width, args.height, args.format, args.plddt, new FocusFirstResidue());
 
     const fileName = getFileName(args.in);
     const cif = await readCifFile(args.in);

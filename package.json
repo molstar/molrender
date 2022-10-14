@@ -31,6 +31,12 @@
     "build/bin/molrender.js"
   ],
   "author": "Mol* Contributors",
+  "contributors": [
+    "Jesse Liang <jesse.liang@rcsb.org>",
+    "Alexander Rose <alexander.rose@weirdbyte.de>",
+    "Sebastian Bittrich <sebastian.bittrich@rcsb.org>",
+    "Ke Ma <mark.ma@rcsb.org>"
+  ],
   "license": "MIT",
   "devDependencies": {
     "@types/argparse": "^2.0.10",

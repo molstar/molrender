@@ -22,10 +22,10 @@ export class FocusFirstResidue implements FocusFactoryI {
             });
             const caPositions = getPositions(structure);
             const principalAxes = PrincipalAxes.ofPositions(caPositions);
-
+            const positionToFlip = getFirstResidueOrAveragePosition(structure, caPositions);
             const { origin, dirA, dirB, dirC } = principalAxes.boxAxes;
 
-            const toFlip = this.getAxesToFlip(caPositions, origin, dirA, dirB);
+            const toFlip = this.getAxesToFlip(positionToFlip, origin, dirA, dirB);
             toFlip.forEach((axis)=>{
                 if (axis === 'aroundY') {
                     Vec3.negate(dirC, dirC);
@@ -60,12 +60,43 @@ export class FocusFirstResidue implements FocusFactoryI {
             imageRender.canvas3d.camera.setState(state);
         };
     }
-    getAxesToFlip(positions: Float32Array, origin: Vec3, up: Vec3, normalDir: Vec3) {
-        const toYAxis = calculateDisplacement(positions, origin, normalDir);
-        const toXAxis = calculateDisplacement(positions, origin, up);
+    getAxesToFlip(position: Vec3, origin: Vec3, up: Vec3, normalDir: Vec3) {
+        const toYAxis = calculateDisplacement(position, origin, normalDir);
+        const toXAxis = calculateDisplacement(position, origin, up);
         const Axes: string[] = [];
-        if (toYAxis[0] < 0) Axes.push('aroundY');
-        if (toXAxis[0] < 0) Axes.push('aroundX');
+        if (toYAxis < 0) Axes.push('aroundY');
+        if (toXAxis < 0) Axes.push('aroundX');
         return Axes;
+    }
+}
+
+function getFirstResidueOrAveragePosition(structure: Structure, caPositions: Float32Array): Vec3 {
+    // if only one chain => first residue coordinates
+    if (structure.units.length === 1) {
+        return Vec3.create(caPositions[0], caPositions[1], caPositions[2]);
+    } else {
+    // if more than one chain => average of coordinates of the first chain
+        const tmpMatrixPos = Vec3.zero();
+        const AtomIndexs = structure.units[0].elements;
+        const firstChainPositions = [];
+        for (let i = 0; i < AtomIndexs.length; i++) {
+            const coordinates = structure.units[0].conformation.position(AtomIndexs[i], tmpMatrixPos);
+            for (let j = 0; j < coordinates.length; j++) {
+                firstChainPositions.push(coordinates[j]);
+            }
+        }
+        let sumX = 0;
+        let sumY = 0;
+        let sumZ = 0;
+        for (let i = 0; i < firstChainPositions.length; i += 3) {
+            sumX += firstChainPositions[i];
+            sumY += firstChainPositions[i + 1];
+            sumZ += firstChainPositions[i + 2];
+        }
+        const averagePosition = Vec3.zero();
+        averagePosition[0] = sumX / AtomIndexs.length;
+        averagePosition[1] = sumY / AtomIndexs.length;
+        averagePosition[2] = sumZ / AtomIndexs.length;
+        return averagePosition;
     }
 }

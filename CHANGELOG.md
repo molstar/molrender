@@ -1,6 +1,10 @@
 # Change Log
 All notable changes to this project will be documented in this file, following the suggestions of [Keep a CHANGELOG](http://keepachangelog.com/). This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.5.2] - 2022-11-17
+-------------
+* More consistent orientation of structures (#5)
+
 ## [v0.5.1] - 2022-05-30
 -------------
 * Update to Mol* 3.9.0 for drastic performance improvement (#4)

@@ -82,6 +82,19 @@ addBasicArgs(modelsParser);
 const allParser = subparsers.add_parser('all', { add_help: true });
 addBasicArgs(allParser);
 
+
+const chainListParser = subparsers.add_parser('chain-list', { add_help: true });
+addBasicArgs(chainListParser);
+chainListParser.add_argument('asmIndex', {
+    action: 'store',
+    help: 'assembly index',
+});
+chainListParser.add_argument('chainList', {
+    action: 'store',
+    nargs: '*',
+    help: 'chain chainName1 [operator1] chain chainName2 [operator2] ...'
+});
+
 const args = parser.parse_args();
 
 if (!fs.existsSync(args.in)) {
@@ -124,6 +137,9 @@ async function main() {
             break;
         case 'models':
             await renderer.renderModels(trajectory, args.out, fileName);
+            break;
+        case 'chain-list':
+            await renderer.renderChainList(args.asmIndex, args.chainList, await Task.resolveInContext(trajectory.representative), args.out, fileName);
             break;
     }
 }

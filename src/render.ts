@@ -52,6 +52,7 @@ import { PLDDTConfidenceColorThemeProvider } from 'molstar/lib/extensions/model-
 import { FocusExpression, FocusExpressionNoBranched,
     RepresentationExpression, RepresentationExpressionNoBranched, SmallFocusExpression } from './expression';
 import { FocusFactoryI } from './focus-camera/focus-factory-interface';
+import { structureUnion } from 'molstar/lib/mol-model/structure/query/utils/structure-set';
 
 /**
  * Helper method to create PNG with given PNG data
@@ -419,6 +420,52 @@ export class ImageRenderer {
         const structureSize = getStructureSize(firstModelStructure);
         const colorTheme = firstModelStructure.polymerUnitCount === 1 ? 'sequence-id' : 'polymer-id';
         await this.render(structure, `${outPath}/${fileName}_models`, { colorTheme, suppressSurface: true, structureSize, quality });
+    }
+
+    async renderChainList(asmIndex: number, chainList: string[], model: Model, outPath: string, fileName: string) {
+        const symmetry = ModelSymmetry.Provider.get(model)!;
+        const asmId = symmetry.assemblies[asmIndex].id;
+        const modelStructure = Structure.ofModel(model);
+        const symmetryStructure = await StructureSymmetry.buildAssembly(modelStructure, symmetry.assemblies[asmIndex].id).run();
+        const divided: string[][] = [];
+        let current: string[] = [];
+        for (const str of chainList) {
+            if (str === 'chain') {
+                if (current.length > 0) {
+                    divided.push(current);
+                }
+                current = [];
+            } else {
+                current.push(str);
+            }
+        }
+        divided.push(current);
+        const pairList = divided.map(arr => arr.join('-'));
+        const chainString = pairList.join(' ');
+        console.log(`Rendering ${fileName} assembly ${asmId} chainList ${chainString}`);
+        const chainStructures: Structure[] = [];
+        for (let i = 0; i < divided.length; i++) {
+            if (divided[i].length === 1) {
+                const structureChain = getStructureFromExpression(symmetryStructure, MS.struct.generator.atomGroups({
+                    'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), divided[i][0]])
+                }));
+                chainStructures.push(structureChain);
+            } else if (divided[i].length === 2) {
+                const structureChain = getStructureFromExpression(symmetryStructure, MS.struct.generator.atomGroups({
+                    'chain-test': MS.core.logic.and([
+                        MS.core.rel.eq([MS.acp('operatorName'), divided[i][1]]),
+                        MS.core.rel.eq([MS.ammp('label_asym_id'), divided[i][0]])
+                    ])
+                }));
+                chainStructures.push(structureChain);
+            } else {
+                console.error('incorrect chainList format');
+                process.exit(1);
+            }
+        }
+        const structure = structureUnion(symmetryStructure, chainStructures);
+        const colorTheme = this.checkPlddtColorTheme(structure);
+        await this.render(structure, `${outPath}/${fileName}_chain-list-assembly-${asmId}-${pairList.join('-')}`, { colorTheme, suppressBranched: true });
     }
 
     private checkPlddtColorTheme(structure: Structure): 'plddt-confidence' | undefined {

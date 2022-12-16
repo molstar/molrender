@@ -71,6 +71,7 @@ export class FocusFirstResidue implements FocusFactoryI {
 }
 
 function getFirstResidueOrAveragePosition(structure: Structure, caPositions: Float32Array): Vec3 {
+    //TODO Is this the best way to test single chain?
     // if only one chain => first residue coordinates
     if (structure.units.length === 1) {
         return Vec3.create(caPositions[0], caPositions[1], caPositions[2]);

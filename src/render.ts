@@ -439,7 +439,8 @@ export class ImageRenderer {
                 current.push(str);
             }
         }
-        divided.push(current);
+        if (current.length > 0)
+            divided.push(current);
         const pairList = divided.map(arr => arr.join('-'));
         const chainString = pairList.join(' ');
         console.log(`Rendering ${fileName} assembly ${asmId} chainList ${chainString}`);
@@ -459,7 +460,7 @@ export class ImageRenderer {
                 }));
                 chainStructures.push(structureChain);
             } else {
-                console.error('incorrect chainList format');
+                console.error('Incorrect chainList format');
                 process.exit(1);
             }
         }

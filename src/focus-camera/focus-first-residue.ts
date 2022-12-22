@@ -80,8 +80,9 @@ function getFirstResidueOrAveragePosition(structure: Structure, caPositions: Flo
         const tmpMatrixPos = Vec3.zero();
         const AtomIndexs = structure.units[0].elements;
         const firstChainPositions = [];
+        const readPosition = structure.units[0].conformation.position;
         for (let i = 0; i < AtomIndexs.length; i++) {
-            const coordinates = structure.units[0].conformation.position(AtomIndexs[i], tmpMatrixPos);
+            const coordinates = readPosition(AtomIndexs[i], tmpMatrixPos);
             for (let j = 0; j < coordinates.length; j++) {
                 firstChainPositions.push(coordinates[j]);
             }

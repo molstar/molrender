@@ -78,11 +78,16 @@ function getFirstResidueOrAveragePosition(structure: Structure, caPositions: Flo
     } else {
     // if more than one chain => average of coordinates of the first chain
         const tmpMatrixPos = Vec3.zero();
-        const AtomIndexs = structure.units[0].elements;
+        let atomIndexs;
+        if (structure.units[0].props.polymerElements) {
+            atomIndexs = structure.units[0].props.polymerElements;
+        } else {
+            atomIndexs = structure.units[0].elements;
+        }
         const firstChainPositions = [];
         const readPosition = structure.units[0].conformation.position;
-        for (let i = 0; i < AtomIndexs.length; i++) {
-            const coordinates = readPosition(AtomIndexs[i], tmpMatrixPos);
+        for (let i = 0; i < atomIndexs.length; i++) {
+            const coordinates = readPosition(atomIndexs[i], tmpMatrixPos);
             for (let j = 0; j < coordinates.length; j++) {
                 firstChainPositions.push(coordinates[j]);
             }
@@ -96,9 +101,9 @@ function getFirstResidueOrAveragePosition(structure: Structure, caPositions: Flo
             sumZ += firstChainPositions[i + 2];
         }
         const averagePosition = Vec3.zero();
-        averagePosition[0] = sumX / AtomIndexs.length;
-        averagePosition[1] = sumY / AtomIndexs.length;
-        averagePosition[2] = sumZ / AtomIndexs.length;
+        averagePosition[0] = sumX / atomIndexs.length;
+        averagePosition[1] = sumY / atomIndexs.length;
+        averagePosition[2] = sumZ / atomIndexs.length;
         return averagePosition;
     }
 }

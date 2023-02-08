@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2022 mol* contributors, licensed under MIT, See LICENSE file for more info.
+ * Copyright (c) 2019-2023 mol* contributors, licensed under MIT, See LICENSE file for more info.
  *
  * @author Alexander Rose <alexander.rose@weirdbyte.de>
  * @author Jesse Liang <jesse.liang@rcsb.org>
@@ -428,34 +428,82 @@ export class ImageRenderer {
         const modelStructure = Structure.ofModel(model);
         const symmetryStructure = await StructureSymmetry.buildAssembly(modelStructure, symmetry.assemblies[asmIndex].id).run();
         const divided: string[][] = [];
-        let current: string[] = [];
+        let subArr: string[] = [];
         for (const str of chainList) {
             if (str === 'chain') {
-                if (current.length > 0) {
-                    divided.push(current);
+                if (subArr.length > 0) {
+                    divided.push(subArr);
                 }
-                current = [];
+                subArr = [];
             } else {
-                current.push(str);
+                subArr.push(str);
             }
         }
-        if (current.length > 0)
-            divided.push(current);
-        const pairList = divided.map(arr => arr.join('-'));
+        if (subArr.length > 0) {
+            divided.push(subArr);
+        }
+        const renderChainList: string[][] = [];
+        const renderChainListLog: string[][] = [];
+        for (const chainOp of divided) {
+            if (chainOp.length === 1) {
+                renderChainList.push([chainOp[0]]);
+                renderChainListLog.push([chainOp[0]]);
+            } else {
+                if (chainOp[1] === 'operator-list') {
+                    const operList = chainOp.slice(2);
+                    const op = operList.slice(0).sort();
+                    let isFind = false;
+                    const allOperators = symmetry.assemblies[0].operatorGroups[0].operators;
+                    for (let i = 0; i < allOperators.length; i++) {
+                        const opCurr = allOperators[i].assembly?.operList;
+                        if (opCurr) {
+                            const opCurrSort = opCurr.slice(0).sort();
+                            if (opCurrSort.length === op.length) {
+                                for (let j = 0; j < op.length; j++) {
+                                    if (op[j] !== opCurrSort[j]) {
+                                        break;
+                                    } else {
+                                        if (j === op.length - 1) {
+                                            isFind = true;
+                                            renderChainList.push([chainOp[0], allOperators[i].name]);
+                                            renderChainListLog.push([chainOp[0], operList.join('-')]);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (isFind) {
+                            break;
+                        }
+                    }
+                    if (isFind === false) {
+                        console.error('invalid opertaor-list');
+                        process.exit(1);
+                    }
+                } else if (chainOp[1] === 'operator-name') {
+                    renderChainList.push([chainOp[0], chainOp[2]]);
+                    renderChainListLog.push([chainOp[0], chainOp[2]]);
+                } else {
+                    console.error('invalid operator format, follow the format: chain A operator-name ASM_1 or chain A operator-list 1 63');
+                    process.exit(1);
+                }
+            }
+        }
+        const pairList = renderChainListLog.map(arr => arr.join('-'));
         const chainString = pairList.join(' ');
         console.log(`Rendering ${fileName} assembly ${asmId} chainList ${chainString}`);
         const chainStructures: Structure[] = [];
-        for (let i = 0; i < divided.length; i++) {
-            if (divided[i].length === 1) {
+        for (let i = 0; i < renderChainList.length; i++) {
+            if (renderChainList[i].length === 1) {
                 const structureChain = getStructureFromExpression(symmetryStructure, MS.struct.generator.atomGroups({
-                    'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), divided[i][0]])
+                    'chain-test': MS.core.rel.eq([MS.ammp('label_asym_id'), renderChainList[i][0]])
                 }));
                 chainStructures.push(structureChain);
-            } else if (divided[i].length === 2) {
+            } else if (renderChainList[i].length === 2) {
                 const structureChain = getStructureFromExpression(symmetryStructure, MS.struct.generator.atomGroups({
                     'chain-test': MS.core.logic.and([
-                        MS.core.rel.eq([MS.acp('operatorName'), divided[i][1]]),
-                        MS.core.rel.eq([MS.ammp('label_asym_id'), divided[i][0]])
+                        MS.core.rel.eq([MS.acp('operatorName'), renderChainList[i][1]]),
+                        MS.core.rel.eq([MS.ammp('label_asym_id'), renderChainList[i][0]])
                     ])
                 }));
                 chainStructures.push(structureChain);

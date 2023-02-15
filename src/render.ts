@@ -453,7 +453,7 @@ export class ImageRenderer {
                     const operList = chainOp.slice(2);
                     const op = operList.slice(0).sort();
                     let isFind = false;
-                    const allOperators = symmetry.assemblies[0].operatorGroups[0].operators;
+                    const allOperators = symmetry.assemblies[asmIndex].operatorGroups[0].operators;
                     for (let i = 0; i < allOperators.length; i++) {
                         const opCurr = allOperators[i].assembly?.operList;
                         if (opCurr) {

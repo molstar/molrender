@@ -35,12 +35,12 @@ function addBasicArgs(currParser: argparse.ArgumentParser) {
     });
     currParser.add_argument('--width', {
         action: 'store',
-        help: 'image height',
+        help: 'image width',
         default: 2048
     });
     currParser.add_argument('--height', {
         action: 'store',
-        help: 'image width',
+        help: 'image height',
         default: 1536
     });
     currParser.add_argument('--format', {

@@ -167,9 +167,9 @@ export class ImageRenderer {
 
         const input = InputObserver.create();
         const attribs = { ...DefaultAttribs };
-        const passes = new Passes(this.webgl, attribs);
+        const passes = new Passes(this.webgl, this.assetManager, attribs);
 
-        this.canvas3d = Canvas3D.create({ webgl: this.webgl, input, passes, attribs } as Canvas3DContext, {
+        this.canvas3d = Canvas3D.create({ webgl: this.webgl, input, passes, attribs, assetManager: this.assetManager } as Canvas3DContext, {
             camera: {
                 mode: 'orthographic',
                 helper: {
@@ -178,7 +178,8 @@ export class ImageRenderer {
                 stereo: {
                     name: 'off', params: {}
                 },
-                manualReset: false
+                manualReset: false,
+                fov: 0
             },
             cameraFog: {
                 name: 'on',
@@ -204,6 +205,16 @@ export class ImageRenderer {
                         edgeThresholdMax: 0.063,
                         iterations: 12,
                         subpixelQuality: 0.3
+                    }
+                },
+                shadow: {
+                    name: 'off',
+                    params: {}
+                },
+                background: {
+                    variant: {
+                        name: 'off',
+                        params: {}
                     }
                 }
             }

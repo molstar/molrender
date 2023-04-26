@@ -6,7 +6,7 @@
 ![alt example](https://raw.githubusercontent.com/molstar/molrender/master/4hhb_assembly-1.png)
 
 ## Usage
-Molrender creates images of the following types: `model`, `assembly`, `chain`, `models`, or `all`. Either as `png` or `jpeg`.
+Molrender creates images of the following types: `model`, `assembly`, `chain`, `chain-list`, `models`, or `all`. Either as `png` or `jpeg`.
 
 ### Create all images as PNG
     molrender all /path/to/5cbg.cif /path/to/out/

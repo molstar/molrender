@@ -488,7 +488,7 @@ export class ImageRenderer {
                         }
                     }
                     if (isFind === false) {
-                        console.error('invalid opertaor-list');
+                        console.error('invalid operator-list');
                         process.exit(1);
                     }
                 } else if (chainOp[1] === 'operator-name') {

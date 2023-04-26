@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022 mol* contributors, licensed under MIT, See LICENSE file for more info.
+ * Copyright (c) 2022-2023 mol* contributors, licensed under MIT, See LICENSE file for more info.
  *
  * @author Ke Ma <mark.ma@rcsb.org>
  */
@@ -22,18 +22,16 @@ export class FocusFirstResidue implements FocusFactoryI {
             });
             const caPositions = getPositions(structure);
             const principalAxes = PrincipalAxes.ofPositions(caPositions);
-
+            const positionToFlip = getFirstResidueOrAveragePosition(structure, caPositions);
             const { origin, dirA, dirB, dirC } = principalAxes.boxAxes;
 
-            const toFlip = this.getAxesToFlip(caPositions, origin, dirA, dirB);
-            toFlip.forEach((axis)=>{
-                if (axis === 'aroundY') {
-                    Vec3.negate(dirC, dirC);
-                } else if (axis === 'aroundX') {
-                    Vec3.negate(dirA, dirA);
-                    Vec3.negate(dirC, dirC);
-                }
-            });
+            const { aroundX, aroundY } = getAxesToFlip(positionToFlip, origin, dirA, dirB);
+            if (aroundY) {
+                Vec3.negate(dirC, dirC);
+            } else if (aroundX) {
+                Vec3.negate(dirA, dirA);
+                Vec3.negate(dirC, dirC);
+            }
 
             const radius = Vec3.magnitude(dirC);
             // move camera far in the direction from the origin, so we get a view from the outside
@@ -60,12 +58,37 @@ export class FocusFirstResidue implements FocusFactoryI {
             imageRender.canvas3d.camera.setState(state);
         };
     }
-    getAxesToFlip(positions: Float32Array, origin: Vec3, up: Vec3, normalDir: Vec3) {
-        const toYAxis = calculateDisplacement(positions, origin, normalDir);
-        const toXAxis = calculateDisplacement(positions, origin, up);
-        const Axes: string[] = [];
-        if (toYAxis[0] < 0) Axes.push('aroundY');
-        if (toXAxis[0] < 0) Axes.push('aroundX');
-        return Axes;
+}
+
+function getAxesToFlip(position: Vec3, origin: Vec3, up: Vec3, normalDir: Vec3) {
+    const toYAxis = calculateDisplacement(position, origin, normalDir);
+    const toXAxis = calculateDisplacement(position, origin, up);
+    return {
+        aroundX: toXAxis < 0,
+        aroundY: toYAxis < 0,
+    };
+}
+
+function getFirstResidueOrAveragePosition(structure: Structure, caPositions: Float32Array): Vec3 {
+    // if only one chain => first residue coordinates
+    if (structure.units.length === 1) {
+        return Vec3.create(caPositions[0], caPositions[1], caPositions[2]);
+    } else {
+    // if more than one chain, return average of the coordinates of the first polymer chain
+        const pos = Vec3.zero();
+        const center = Vec3.zero();
+        let atomIndexs;
+        if (structure.units[0].props.polymerElements) {
+            atomIndexs = structure.units[0].props.polymerElements;
+        } else {
+            atomIndexs = structure.units[0].elements;
+        }
+        const { position } = structure.units[0].conformation;
+        for (let i = 0; i < atomIndexs.length; i++) {
+            position(atomIndexs[i], pos);
+            Vec3.add(center, center, pos);
+        }
+        Vec3.scale(center, center, 1 / atomIndexs.length);
+        return center;
     }
 }

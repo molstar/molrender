@@ -97,11 +97,6 @@ chainListParser.add_argument('chainList', {
 
 const args = parser.parse_args();
 
-if (!fs.existsSync(args.in)) {
-    console.error(`Input path "${args.in}" does not exist`);
-    process.exit(1);
-}
-
 if (!fs.existsSync(args.out)) {
     fs.mkdirSync(args.out, { recursive: true });
 }
@@ -116,10 +111,28 @@ export function getFileName(inPath: string) {
 }
 
 async function main() {
-    const renderer = new ImageRenderer(args.width, args.height, args.format, args.plddt, new FocusFirstResidue());
+    // Support multiple, comma-separated files
+    var files:string[] = args.in.split(',');
 
-    const fileName = getFileName(args.in);
-    const cif = await readCifFile(args.in);
+    // Confirm all files exist
+    files.forEach(file => {
+        if (!fs.existsSync(file)) {
+            console.error(`Input path "${file}" does not exist`);
+            process.exit(1);
+        }
+    });
+
+    // Run the rendering process
+    files.forEach(async file => {
+        await renderFile(file);
+    });
+}
+
+async function renderFile(filePath: string) {
+    var fileName = getFileName(filePath);
+
+    const renderer = new ImageRenderer(args.width, args.height, args.format, args.plddt, new FocusFirstResidue());
+    const cif = await readCifFile(filePath);
     const trajectory = await getTrajectory(cif as CifFrame);
 
     switch (args.render) {

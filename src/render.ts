@@ -402,14 +402,14 @@ export class ImageRenderer {
         await this.render(structure, `${outPath}/${fileName}_assembly-${asmId}`, { colorTheme });
 
         this.saveState({
-            "id":fileName,
-            "case": "assembly",
-            "config": {
-                "props": {
-                    "assemblyId": asmId
+            'id': fileName,
+            'case': 'assembly',
+            'config': {
+                'props': {
+                    'assemblyId': asmId
                 }
             }
-        },`${outPath}/${fileName}_assembly-${asmId}.json`)       
+        }, `${outPath}/${fileName}_assembly-${asmId}.json`);
     }
 
     /**
@@ -422,14 +422,14 @@ export class ImageRenderer {
         const colorTheme = this.checkPlddtColorTheme(structure);
         await this.render(structure, `${outPath}/${fileName}_model-${oneIndex}`, { colorTheme });
         this.saveState({
-            "id":fileName,
-            "case": "model",
-            "config": {
-                "props": {
-                    "modelIndex": oneIndex
+            'id': fileName,
+            'case': 'model',
+            'config': {
+                'props': {
+                    'modelIndex': oneIndex
                 }
             }
-        },`${outPath}/${fileName}_model-${oneIndex}.json`)
+        }, `${outPath}/${fileName}_model-${oneIndex}.json`);
     }
 
     /**
@@ -445,17 +445,17 @@ export class ImageRenderer {
         const colorTheme = this.checkPlddtColorTheme(structure);
         await this.render(structure, `${outPath}/${fileName}_chain-${chainName}`, { colorTheme, suppressBranched: true });
         this.saveState({
-            "id":fileName,
-            "case": "chain",
-            "config": {
-                "props": {
-                    "target" : {
-                        "kind":"chain",
-                        "asymId": chainName
+            'id': fileName,
+            'case': 'chain',
+            'config': {
+                'props': {
+                    'target': {
+                        'kind': 'chain',
+                        'asymId': chainName
                     }
                 }
             }
-        },`${outPath}/${fileName}_chain-${chainName}.json`)
+        }, `${outPath}/${fileName}_chain-${chainName}.json`);
     }
 
     async renderModels(models: Trajectory, outPath: string, fileName: string) {
@@ -491,15 +491,15 @@ export class ImageRenderer {
         }
         const renderChainList: string[][] = [];
         const renderChainListLog: string[][] = [];
-        let opMap: {[key: string]: string} = {};
-        for(const og of symmetry.assemblies[asmIndex].operatorGroups){
-            for(const op of og.operators){
+        const opMap: {[key: string]: string} = {};
+        for (const og of symmetry.assemblies[asmIndex].operatorGroups) {
+            for (const op of og.operators) {
                 if (op.assembly?.operList) {
-                    const key = op.assembly.operList.sort().join(",");
+                    const key = op.assembly.operList.sort().join(',');
                     opMap[key] = op.name;
                 }
             }
-        }   
+        }
         for (const chainOp of divided) {
             if (chainOp.length === 1) {
                 renderChainList.push([chainOp[0]]);
@@ -507,8 +507,8 @@ export class ImageRenderer {
             } else {
                 if (chainOp[1] === 'operator-list') {
                     const operList = chainOp.slice(2);
-                    const opKey = operList.sort().join(",");
-                    if(opMap[opKey]){
+                    const opKey = operList.sort().join(',');
+                    if (opMap[opKey]) {
                         renderChainList.push([chainOp[0], opMap[opKey]]);
                         renderChainListLog.push([chainOp[0], operList.join('-')]);
                     } else {
@@ -558,7 +558,7 @@ export class ImageRenderer {
         if (PLDDTConfidenceColorThemeProvider.isApplicable({ structure })) return PLDDTConfidenceColorThemeProvider.name;
     }
 
-    private async render(structure: Structure, imagePathName: string, options?: { colorTheme?: string, suppressSurface?: boolean, suppressBranched?: boolean, structureSize?: StructureSize, quality?: VisualQuality}, molrenderState?:object ) {
+    private async render(structure: Structure, imagePathName: string, options?: { colorTheme?: string, suppressSurface?: boolean, suppressBranched?: boolean, structureSize?: StructureSize, quality?: VisualQuality}, molrenderState?: object) {
         const size = options?.structureSize ?? getStructureSize(structure);
         const quality = options?.quality ?? getQuality(structure);
         let focusStructure: Structure;
@@ -626,11 +626,11 @@ export class ImageRenderer {
         }
     }
 
-    private saveState(molrenderState: any, path:string): void {
-        if(!this.save_state_flag)
+    private saveState(molrenderState: any, path: string): void {
+        if (!this.save_state_flag)
             return;
-        const cameraState = this.canvas3d.camera.state
-        const savedState = {...molrenderState,cameraState:cameraState}
+        const cameraState = this.canvas3d.camera.state;
+        const savedState = { ...molrenderState, cameraState: cameraState };
         const stateJson = JSON.stringify(savedState, null, 2); // The '2' adds indentation for readability
 
         fs.writeFile(path, stateJson, 'utf8', (err) => {

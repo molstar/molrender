@@ -54,9 +54,9 @@ function addBasicArgs(currParser: argparse.ArgumentParser) {
         default: 'single-chain'
     });
     currParser.add_argument('--save-state', {
-        action: 'store', 
+        action: 'store',
         help: 'save the molrender state to regenerate protein view in molstar',
-        default: false 
+        default: false
     });
 }
 

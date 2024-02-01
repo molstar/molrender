@@ -145,6 +145,21 @@ interface ReprParams {
     radiusOffset?: number
 }
 
+export type MolRenderStateType = {
+    id: string;
+    colorTheme: 'plddt-confidence' | 'sequence-id' | 'polymer-index' | 'polymer-id';
+    cameraState: Camera.Snapshot;
+} & ({
+    case: 'chain';
+    asymId: string;
+} | {
+    case: 'model';
+    modelIndex: number;
+} | {
+    case: 'assembly';
+    assemblyId: string;
+});
+
 /**
  * ImageRenderer class used to initialize 3dcanvas for rendering
  */
@@ -402,13 +417,11 @@ export class ImageRenderer {
         await this.render(structure, `${outPath}/${fileName}_assembly-${asmId}`, { colorTheme });
 
         this.saveState({
-            'id': fileName,
-            'case': 'assembly',
-            'config': {
-                'props': {
-                    'assemblyId': asmId
-                }
-            }
+            id: fileName,
+            case: 'assembly',
+            assemblyId: asmId,
+            colorTheme: colorTheme ?? getColorTheme(structure),
+            cameraState: this.canvas3d.camera.state,
         }, `${outPath}/${fileName}_assembly-${asmId}.json`);
     }
 
@@ -422,14 +435,14 @@ export class ImageRenderer {
         const colorTheme = this.checkPlddtColorTheme(structure);
         await this.render(structure, `${outPath}/${fileName}_model-${oneIndex}`, { colorTheme });
         this.saveState({
-            'id': fileName,
-            'case': 'model',
-            'config': {
-                'props': {
-                    'modelIndex': oneIndex
-                }
-            }
-        }, `${outPath}/${fileName}_model-${oneIndex}.json`);
+            id: fileName,
+            case: 'model',
+            modelIndex: oneIndex,
+            colorTheme: colorTheme ?? getColorTheme(structure),
+            cameraState: this.canvas3d.camera.state,
+        },
+        `${outPath}/${fileName}_model-${oneIndex}.json`
+        );
     }
 
     /**
@@ -445,16 +458,11 @@ export class ImageRenderer {
         const colorTheme = this.checkPlddtColorTheme(structure);
         await this.render(structure, `${outPath}/${fileName}_chain-${chainName}`, { colorTheme, suppressBranched: true });
         this.saveState({
-            'id': fileName,
-            'case': 'chain',
-            'config': {
-                'props': {
-                    'target': {
-                        'kind': 'chain',
-                        'asymId': chainName
-                    }
-                }
-            }
+            id: fileName,
+            case: 'chain',
+            asymId: chainName,
+            colorTheme: colorTheme ?? getColorTheme(structure),
+            cameraState: this.canvas3d.camera.state,
         }, `${outPath}/${fileName}_chain-${chainName}.json`);
     }
 
@@ -558,7 +566,7 @@ export class ImageRenderer {
         if (PLDDTConfidenceColorThemeProvider.isApplicable({ structure })) return PLDDTConfidenceColorThemeProvider.name;
     }
 
-    private async render(structure: Structure, imagePathName: string, options?: { colorTheme?: string, suppressSurface?: boolean, suppressBranched?: boolean, structureSize?: StructureSize, quality?: VisualQuality}, molrenderState?: object) {
+    private async render(structure: Structure, imagePathName: string, options?: { colorTheme?: string, suppressSurface?: boolean, suppressBranched?: boolean, structureSize?: StructureSize, quality?: VisualQuality}, molrenderState?: MolRenderStateType) {
         const size = options?.structureSize ?? getStructureSize(structure);
         const quality = options?.quality ?? getQuality(structure);
         let focusStructure: Structure;
@@ -626,12 +634,10 @@ export class ImageRenderer {
         }
     }
 
-    private saveState(molrenderState: any, path: string): void {
+    private saveState(molrenderState: MolRenderStateType, path: string): void {
         if (!this.save_state_flag)
             return;
-        const cameraState = this.canvas3d.camera.state;
-        const savedState = { ...molrenderState, cameraState: cameraState };
-        const stateJson = JSON.stringify(savedState, null, 2); // The '2' adds indentation for readability
+        const stateJson = JSON.stringify(molrenderState, null, 2); // The '2' adds indentation for readability
 
         fs.writeFile(path, stateJson, 'utf8', (err) => {
             if (err) {

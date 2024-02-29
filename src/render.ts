@@ -455,6 +455,15 @@ export class ImageRenderer {
         }
         const renderChainList: string[][] = [];
         const renderChainListLog: string[][] = [];
+        let opMap: {[key: string]: string} = {};
+        for(const og of symmetry.assemblies[asmIndex].operatorGroups){
+            for(const op of og.operators){
+                if (op.assembly?.operList) {
+                    const key = op.assembly.operList.sort().join(",");
+                    opMap[key] = op.name;
+                }
+            }
+        }   
         for (const chainOp of divided) {
             if (chainOp.length === 1) {
                 renderChainList.push([chainOp[0]]);
@@ -462,32 +471,11 @@ export class ImageRenderer {
             } else {
                 if (chainOp[1] === 'operator-list') {
                     const operList = chainOp.slice(2);
-                    const op = operList.slice(0).sort();
-                    let isFind = false;
-                    const allOperators = symmetry.assemblies[asmIndex].operatorGroups[0].operators;
-                    for (let i = 0; i < allOperators.length; i++) {
-                        const opCurr = allOperators[i].assembly?.operList;
-                        if (opCurr) {
-                            const opCurrSort = opCurr.slice(0).sort();
-                            if (opCurrSort.length === op.length) {
-                                for (let j = 0; j < op.length; j++) {
-                                    if (op[j] !== opCurrSort[j]) {
-                                        break;
-                                    } else {
-                                        if (j === op.length - 1) {
-                                            isFind = true;
-                                            renderChainList.push([chainOp[0], allOperators[i].name]);
-                                            renderChainListLog.push([chainOp[0], operList.join('-')]);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if (isFind) {
-                            break;
-                        }
-                    }
-                    if (isFind === false) {
+                    const opKey = operList.sort().join(",");
+                    if(opMap[opKey]){
+                        renderChainList.push([chainOp[0], opMap[opKey]]);
+                        renderChainListLog.push([chainOp[0], operList.join('-')]);
+                    } else {
                         console.error('invalid operator-list');
                         process.exit(1);
                     }

@@ -145,6 +145,21 @@ interface ReprParams {
     radiusOffset?: number
 }
 
+export type MolRenderStateType = {
+    id: string;
+    colorTheme: 'plddt-confidence' | 'sequence-id' | 'polymer-index' | 'polymer-id';
+    cameraState: Camera.Snapshot;
+} & ({
+    case: 'chain';
+    asymId: string;
+} | {
+    case: 'model';
+    modelIndex: number;
+} | {
+    case: 'assembly';
+    assemblyId: string;
+});
+
 /**
  * ImageRenderer class used to initialize 3dcanvas for rendering
  */
@@ -155,7 +170,7 @@ export class ImageRenderer {
     imagePass: ImagePass;
     assetManager = new AssetManager();
 
-    constructor(private width: number, private height: number, private format: 'png' | 'jpeg', private plddt: 'on' | 'single-chain' | 'off', focusFactory?: FocusFactoryI) {
+    constructor(private width: number, private height: number, private format: 'png' | 'jpeg', private plddt: 'on' | 'single-chain' | 'off', private save_state_flag: boolean = false, focusFactory?: FocusFactoryI) {
         this.webgl = createContext(getGLContext(this.width, this.height, {
             antialias: true,
             preserveDrawingBuffer: true,
@@ -217,6 +232,10 @@ export class ImageRenderer {
                         name: 'off',
                         params: {}
                     }
+                },
+                sharpening: {
+                    name: 'off', // or some other valid value
+                    params: {}
                 }
             }
         });
@@ -226,7 +245,8 @@ export class ImageRenderer {
             },
             multiSample: {
                 mode: 'on',
-                sampleLevel: 4
+                sampleLevel: 4,
+                reduceFlicker: true
             }
         });
         this.imagePass.setSize(this.width, this.height);
@@ -395,6 +415,14 @@ export class ImageRenderer {
         const structure = await StructureSymmetry.buildAssembly(modelStructure, symmetry.assemblies[asmIndex].id).run();
         const colorTheme = this.checkPlddtColorTheme(structure);
         await this.render(structure, `${outPath}/${fileName}_assembly-${asmId}`, { colorTheme });
+
+        this.saveState({
+            id: fileName,
+            case: 'assembly',
+            assemblyId: asmId,
+            colorTheme: colorTheme ?? getColorTheme(structure),
+            cameraState: this.canvas3d.camera.state,
+        }, `${outPath}/${fileName}_assembly-${asmId}.json`);
     }
 
     /**
@@ -406,6 +434,15 @@ export class ImageRenderer {
         const structure = Structure.ofModel(model);
         const colorTheme = this.checkPlddtColorTheme(structure);
         await this.render(structure, `${outPath}/${fileName}_model-${oneIndex}`, { colorTheme });
+        this.saveState({
+            id: fileName,
+            case: 'model',
+            modelIndex: oneIndex,
+            colorTheme: colorTheme ?? getColorTheme(structure),
+            cameraState: this.canvas3d.camera.state,
+        },
+        `${outPath}/${fileName}_model-${oneIndex}.json`
+        );
     }
 
     /**
@@ -420,6 +457,13 @@ export class ImageRenderer {
         }));
         const colorTheme = this.checkPlddtColorTheme(structure);
         await this.render(structure, `${outPath}/${fileName}_chain-${chainName}`, { colorTheme, suppressBranched: true });
+        this.saveState({
+            id: fileName,
+            case: 'chain',
+            asymId: chainName,
+            colorTheme: colorTheme ?? getColorTheme(structure),
+            cameraState: this.canvas3d.camera.state,
+        }, `${outPath}/${fileName}_chain-${chainName}.json`);
     }
 
     async renderModels(models: Trajectory, outPath: string, fileName: string) {
@@ -455,15 +499,15 @@ export class ImageRenderer {
         }
         const renderChainList: string[][] = [];
         const renderChainListLog: string[][] = [];
-        let opMap: {[key: string]: string} = {};
-        for(const og of symmetry.assemblies[asmIndex].operatorGroups){
-            for(const op of og.operators){
+        const opMap: {[key: string]: string} = {};
+        for (const og of symmetry.assemblies[asmIndex].operatorGroups) {
+            for (const op of og.operators) {
                 if (op.assembly?.operList) {
-                    const key = op.assembly.operList.sort().join(",");
+                    const key = op.assembly.operList.sort().join(',');
                     opMap[key] = op.name;
                 }
             }
-        }   
+        }
         for (const chainOp of divided) {
             if (chainOp.length === 1) {
                 renderChainList.push([chainOp[0]]);
@@ -471,8 +515,8 @@ export class ImageRenderer {
             } else {
                 if (chainOp[1] === 'operator-list') {
                     const operList = chainOp.slice(2);
-                    const opKey = operList.sort().join(",");
-                    if(opMap[opKey]){
+                    const opKey = operList.sort().join(',');
+                    if (opMap[opKey]) {
                         renderChainList.push([chainOp[0], opMap[opKey]]);
                         renderChainListLog.push([chainOp[0], operList.join('-')]);
                     } else {
@@ -522,7 +566,7 @@ export class ImageRenderer {
         if (PLDDTConfidenceColorThemeProvider.isApplicable({ structure })) return PLDDTConfidenceColorThemeProvider.name;
     }
 
-    private async render(structure: Structure, imagePathName: string, options?: { colorTheme?: string, suppressSurface?: boolean, suppressBranched?: boolean, structureSize?: StructureSize, quality?: VisualQuality }) {
+    private async render(structure: Structure, imagePathName: string, options?: { colorTheme?: string, suppressSurface?: boolean, suppressBranched?: boolean, structureSize?: StructureSize, quality?: VisualQuality}, molrenderState?: MolRenderStateType) {
         const size = options?.structureSize ?? getStructureSize(structure);
         const quality = options?.quality ?? getQuality(structure);
         let focusStructure: Structure;
@@ -589,4 +633,19 @@ export class ImageRenderer {
             await this.renderModels(trajectory, outPath, fileName);
         }
     }
+
+    private saveState(molrenderState: MolRenderStateType, path: string): void {
+        if (!this.save_state_flag)
+            return;
+        const stateJson = JSON.stringify(molrenderState, null, 2); // The '2' adds indentation for readability
+
+        fs.writeFile(path, stateJson, 'utf8', (err) => {
+            if (err) {
+                console.error('An error occurred while saving the state:', err);
+                return;
+            }
+            console.log('State saved successfully to', path);
+        });
+    }
+
 }

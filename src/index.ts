@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2022 mol* contributors, licensed under MIT, See LICENSE file for more info.
+ * Copyright (c) 2019-2024 mol* contributors, licensed under MIT, See LICENSE file for more info.
  *
  * @author Jesse Liang <jesse.liang@rcsb.org>
  * @author Alexander Rose <alexander.rose@weirdbyte.de>
@@ -52,6 +52,11 @@ function addBasicArgs(currParser: argparse.ArgumentParser) {
         action: 'store',
         help: 'color predicted structures by pLDDT (on, single-chain, or off)',
         default: 'single-chain'
+    });
+    currParser.add_argument('--save-state', {
+        action: 'store_true',
+        help: 'save the molrender state to regenerate protein view in molstar',
+        default: false
     });
 }
 
@@ -116,7 +121,7 @@ export function getFileName(inPath: string) {
 }
 
 async function main() {
-    const renderer = new ImageRenderer(args.width, args.height, args.format, args.plddt, new FocusFirstResidue());
+    const renderer = new ImageRenderer(args.width, args.height, args.format, args.plddt, args.save_state, new FocusFirstResidue());
 
     const fileName = getFileName(args.in);
     const cif = await readCifFile(args.in);

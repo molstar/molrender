@@ -1,6 +1,6 @@
 {
   "name": "molrender",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Create macromolecular images.",
   "homepage": "https://github.com/molstar/molrender#readme",
   "repository": {

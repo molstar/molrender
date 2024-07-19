@@ -40,7 +40,7 @@
   "license": "MIT",
   "devDependencies": {
     "@types/argparse": "^2.0.10",
-    "@types/gl": "^4.1.0",
+    "@types/gl": "^6.0.2",
     "@types/node": "^20.8.2",
     "@types/pngjs": "^6.0.1",
     "@types/react": "^18.0.9",
@@ -56,10 +56,11 @@
   },
   "dependencies": {
     "argparse": "^2.0.1",
-    "gl": "^5.0.3",
+    "gl": "^6.0.2",
     "jpeg-js": "^0.4.3",
-    "molstar": "3.40.1",
+    "molstar": "4.4.1",
     "pngjs": "^6.0.0",
+    "ts-node": "^10.9.2",
     "util.promisify": "^1.1.1"
   }
 }

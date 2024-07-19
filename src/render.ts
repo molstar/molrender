@@ -75,9 +75,8 @@ export function getPositions(structure: Structure) {
     for (let i = 0, m = 0, il = structure.units.length; i < il; ++i) {
         const unit = structure.units[i];
         const { elements } = unit;
-        const pos = unit.conformation.position;
         for (let j = 0, jl = elements.length; j < jl; ++j) {
-            pos(elements[j], tmpMatrixPos);
+            unit.conformation.position(elements[j], tmpMatrixPos);
             Vec3.toArray(tmpMatrixPos, positions, m + j * 3);
         }
         m += elements.length * 3;
@@ -183,9 +182,22 @@ export class ImageRenderer {
 
         const input = InputObserver.create();
         const attribs = { ...DefaultAttribs };
-        const passes = new Passes(this.webgl, this.assetManager, attribs);
-
-        this.canvas3d = Canvas3D.create({ webgl: this.webgl, input, passes, attribs, assetManager: this.assetManager } as Canvas3DContext, {
+        const props = { ...Canvas3DContext.DefaultProps };
+        const passes = new Passes(this.webgl, this.assetManager, props);
+        const dispose = () => {
+            input.dispose();
+            this.webgl.destroy();
+        };
+        this.canvas3d = Canvas3D.create({
+            webgl: this.webgl,
+            input,
+            passes,
+            attribs,
+            assetManager: this.assetManager,
+            props,
+            setProps: ()=>{},
+            dispose
+        } as Canvas3DContext, {
             camera: {
                 mode: 'orthographic',
                 helper: {
@@ -197,6 +209,7 @@ export class ImageRenderer {
                 manualReset: false,
                 fov: 0
             },
+            cameraResetDurationMs: 0,
             cameraFog: {
                 name: 'on',
                 params: {
@@ -208,6 +221,7 @@ export class ImageRenderer {
                 backgroundColor: ColorNames.white,
             },
             postprocessing: {
+                ...DefaultCanvas3DParams.postprocessing,
                 occlusion: {
                     name: 'off', params: {}
                 },
@@ -246,7 +260,8 @@ export class ImageRenderer {
             multiSample: {
                 mode: 'on',
                 sampleLevel: 4,
-                reduceFlicker: true
+                reduceFlicker: true,
+                reuseOcclusion: true
             }
         });
         this.imagePass.setSize(this.width, this.height);
@@ -331,6 +346,9 @@ export class ImageRenderer {
             bias: 0.8,
             blurKernelSize: 15,
             resolutionScale: 1,
+            multiScale: {
+                name: 'off', params: {}
+            }
         } } : { name: 'off' as const, params: {} };
         const outline = size === StructureSize.Big ? { name: 'on' as const, params: {
             scale: 1,

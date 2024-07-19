@@ -83,9 +83,8 @@ function getFirstResidueOrAveragePosition(structure: Structure, caPositions: Flo
         } else {
             atomIndexs = structure.units[0].elements;
         }
-        const { position } = structure.units[0].conformation;
         for (let i = 0; i < atomIndexs.length; i++) {
-            position(atomIndexs[i], pos);
+            structure.units[0].conformation.position(atomIndexs[i], pos);
             Vec3.add(center, center, pos);
         }
         Vec3.scale(center, center, 1 / atomIndexs.length);

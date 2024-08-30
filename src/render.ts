@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2023 mol* contributors, licensed under MIT, See LICENSE file for more info.
+ * Copyright (c) 2019-2024 mol* contributors, licensed under MIT, See LICENSE file for more info.
  *
  * @author Alexander Rose <alexander.rose@weirdbyte.de>
  * @author Jesse Liang <jesse.liang@rcsb.org>
@@ -53,6 +53,7 @@ import { FocusExpression, FocusExpressionNoBranched,
     RepresentationExpression, RepresentationExpressionNoBranched, SmallFocusExpression } from './expression';
 import { FocusFactoryI } from './focus-camera/focus-factory-interface';
 import { structureUnion } from 'molstar/lib/mol-model/structure/query/utils/structure-set';
+import { QualityAssessment } from 'molstar/lib/extensions/model-archive/quality-assessment/prop';
 
 /**
  * Helper method to create PNG with given PNG data
@@ -195,7 +196,7 @@ export class ImageRenderer {
             attribs,
             assetManager: this.assetManager,
             props,
-            setProps: ()=>{},
+            setProps: () => {},
             dispose
         } as Canvas3DContext, {
             camera: {
@@ -365,7 +366,7 @@ export class ImageRenderer {
             }
         });
 
-        const imageData = this.getImageData(this.width, this.height);
+        const imageData = await this.getImageData(this.width, this.height);
 
         if (this.format === 'png') {
             const generatedPng = new PNG({ width: this.width, height: this.height });
@@ -383,9 +384,9 @@ export class ImageRenderer {
         }
     }
 
-    getImageData(width: number, height: number) {
+    async getImageData(width: number, height: number) {
         this.imagePass.setSize(width, height);
-        this.imagePass.render();
+        await this.imagePass.render(SyncRuntimeContext);
         this.imagePass.colorTarget.bind();
 
         const array = new Uint8Array(width * height * 4);
@@ -581,7 +582,7 @@ export class ImageRenderer {
     private checkPlddtColorTheme(structure: Structure): 'plddt-confidence' | undefined {
         if (this.plddt === 'off') return;
         if (this.plddt === 'single-chain' && structure.polymerUnitCount !== 1) return;
-        if (PLDDTConfidenceColorThemeProvider.isApplicable({ structure })) return PLDDTConfidenceColorThemeProvider.name;
+        if (structure.models.some(m => QualityAssessment.isApplicable(m, 'pLDDT'))) return PLDDTConfidenceColorThemeProvider.name;
     }
 
     private async render(structure: Structure, imagePathName: string, options?: { colorTheme?: string, suppressSurface?: boolean, suppressBranched?: boolean, structureSize?: StructureSize, quality?: VisualQuality}, molrenderState?: MolRenderStateType) {

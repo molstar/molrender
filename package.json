@@ -58,7 +58,7 @@
     "argparse": "^2.0.1",
     "gl": "^6.0.2",
     "jpeg-js": "^0.4.3",
-    "molstar": "4.6.0",
+    "molstar": "4.7.1",
     "pngjs": "^6.0.0",
     "ts-node": "^10.9.2",
     "util.promisify": "^1.1.1"

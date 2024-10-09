@@ -1,6 +1,10 @@
 # Change Log
 All notable changes to this project will be documented in this file, following the suggestions of [Keep a CHANGELOG](http://keepachangelog.com/). This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.7.3] - 2024-10-09
+-------------
+* Update dependencies
+
 ## [v0.7.2] - 2024-10-03
 -------------
 * Update dependencies

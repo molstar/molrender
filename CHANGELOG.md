@@ -1,6 +1,10 @@
 # Change Log
 All notable changes to this project will be documented in this file, following the suggestions of [Keep a CHANGELOG](http://keepachangelog.com/). This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.7.4] - 2024-10-09
+-------------
+* Adjust outline for surface repr
+
 ## [v0.7.3] - 2024-10-09
 -------------
 * Update dependencies

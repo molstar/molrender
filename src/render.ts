@@ -353,7 +353,7 @@ export class ImageRenderer {
         } } : { name: 'off' as const, params: {} };
         const outline = size === StructureSize.Big ? { name: 'on' as const, params: {
             scale: 1,
-            threshold: 0.95,
+            threshold: 0.33,
         } } : { name: 'off' as const, params: {} };
 
         this.canvas3d.commit(true);

@@ -54,6 +54,7 @@ import { FocusExpression, FocusExpressionNoBranched,
 import { FocusFactoryI } from './focus-camera/focus-factory-interface';
 import { structureUnion } from 'molstar/lib/mol-model/structure/query/utils/structure-set';
 import { QualityAssessment } from 'molstar/lib/extensions/model-archive/quality-assessment/prop';
+import { SpacefillRepresentationProvider } from 'molstar/lib/mol-repr/structure/representation/spacefill';
 
 /**
  * Helper method to create PNG with given PNG data
@@ -115,7 +116,10 @@ function isFiberLike(structure: Structure) {
 }
 
 function getStructureSize(structure: Structure): StructureSize {
-    if (structure.polymerResidueCount > 4000) {
+    if (structure.isCoarse) {
+        // force non-atomic IHM into the big category to add outlines
+        return StructureSize.Big;
+    } else if (structure.polymerResidueCount > 4000) {
         return StructureSize.Big;
     } else if (isFiberLike(structure)) {
         return StructureSize.Small;
@@ -333,6 +337,14 @@ export class ImageRenderer {
         await this.addRepresentation(structure, CarbohydrateRepresentationProvider, {
             colorTheme: 'carbohydrate-symbol',
             sizeTheme: 'uniform',
+            ...params
+        });
+    }
+
+    async addSpacefill(structure: Structure, params: Partial<ReprParams> = {}) {
+        await this.addRepresentation(structure, SpacefillRepresentationProvider, {
+            colorTheme: getColorTheme(structure),
+            sizeTheme: 'physical',
             ...params
         });
     }
@@ -590,7 +602,12 @@ export class ImageRenderer {
         const quality = options?.quality ?? getQuality(structure);
         let focusStructure: Structure;
 
-        if (!options?.suppressSurface && size === StructureSize.Big) {
+        if (structure.isCoarse) {
+            // special treatment for IHM structures
+            focusStructure = getStructureFromExpression(structure, Q.all.expression);
+            await this.addCartoon(focusStructure, { quality });
+            await this.addSpacefill(focusStructure, { quality, sizeTheme: 'physical' });
+        } else if (!options?.suppressSurface && size === StructureSize.Big) {
             focusStructure = getStructureFromExpression(structure, Q.polymer.expression);
             await this.addGaussianSurface(focusStructure, { quality });
         } else {

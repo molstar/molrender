@@ -116,7 +116,7 @@ function isFiberLike(structure: Structure) {
 }
 
 function getStructureSize(structure: Structure): StructureSize {
-    if (structure.isCoarse) {
+    if (structure.hasCoarse) {
         // force non-atomic IHM into the big category to add outlines
         return StructureSize.Big;
     } else if (structure.polymerResidueCount > 4000) {
@@ -602,7 +602,7 @@ export class ImageRenderer {
         const quality = options?.quality ?? getQuality(structure);
         let focusStructure: Structure;
 
-        if (structure.isCoarse) {
+        if (structure.hasCoarse) {
             // special treatment for IHM structures
             focusStructure = getStructureFromExpression(structure, Q.all.expression);
             await this.addCartoon(focusStructure, { quality });

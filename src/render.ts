@@ -597,7 +597,7 @@ export class ImageRenderer {
         if (structure.models.some(m => QualityAssessment.isApplicable(m, 'pLDDT'))) return PLDDTConfidenceColorThemeProvider.name;
     }
 
-    private async render(structure: Structure, imagePathName: string, options?: { colorTheme?: string, suppressSurface?: boolean, suppressBranched?: boolean, structureSize?: StructureSize, quality?: VisualQuality}, molrenderState?: MolRenderStateType) {
+    private async render(structure: Structure, imagePathName: string, options?: { colorTheme?: string, suppressSurface?: boolean, suppressBranched?: boolean, structureSize?: StructureSize, quality?: VisualQuality }, molrenderState?: MolRenderStateType) {
         const size = options?.structureSize ?? getStructureSize(structure);
         const quality = options?.quality ?? getQuality(structure);
         let focusStructure: Structure;
@@ -647,39 +647,49 @@ export class ImageRenderer {
         }
 
         // Render all assemblies
-        const { representative } = trajectory;
-        const assemblies = ModelSymmetry.Provider.get(representative)?.assemblies || [];
+        const assemblies = ModelSymmetry.Provider.get(trajectory.representative)?.assemblies || [];
         for (let i = 0, il = assemblies.length; i < il; i++) {
-            await this.renderAssembly(i, representative, outPath, fileName);
+            await this.renderAssembly(i, trajectory.representative, outPath, fileName);
         }
 
-        // Render all atomic polymer chains
-        const { entities } = representative;
-        const { label_asym_id, label_entity_id } = representative.atomicHierarchy.chains;
-        for (let i = 0, il = label_asym_id.rowCount; i < il; i++) {
-            const eI = entities.getEntityIndex(label_entity_id.value(i));
-            if (entities.data.type.value(eI) !== 'polymer') continue;
-            const chnName = label_asym_id.value(i);
-            await this.renderChain(chnName, representative, outPath, fileName);
-        }
+        // IHM entries might models that cover different subsets of all available chains -- render the 1st occurrence of each chain
+        const processed = {
+            chains: new Set<string>(),
+            spheres: new Set<string>(),
+            gaussians: new Set<string>(),
+        };
+        for (let i = 0; i < trajectory.frameCount; i++) {
+            const model = await Task.resolveInContext(trajectory.getFrameAtIndex(i));
+            const { entities, atomicHierarchy, coarseHierarchy } = model;
 
-        // Render all coarse polymer chains
-        const { spheres, gaussians } = representative.coarseHierarchy;
-        let lastSpheresAsymId = undefined;
-        for (let i = 0, il = spheres.asym_id.rowCount; i < il; i++) {
-            const chnName = spheres.asym_id.value(i);
-            if (lastSpheresAsymId === chnName) continue;
+            // Render all atomic polymer chains
+            const { label_asym_id, label_entity_id } = atomicHierarchy.chains;
+            for (let i = 0, il = label_asym_id.rowCount; i < il; i++) {
+                const eI = entities.getEntityIndex(label_entity_id.value(i));
+                if (entities.data.type.value(eI) !== 'polymer') continue;
+                const chnName = label_asym_id.value(i);
+                if (processed.chains.has(chnName)) continue;
 
-            await this.renderChain(chnName, representative, outPath, fileName);
-            lastSpheresAsymId = chnName;
-        }
-        let lastGaussiansAsymId = undefined;
-        for (let i = 0, il = gaussians.asym_id.rowCount; i < il; i++) {
-            const chnName = gaussians.asym_id.value(i);
-            if (lastGaussiansAsymId === chnName) continue;
+                await this.renderChain(chnName, model, outPath, fileName);
+                processed.chains.add(chnName);
+            }
 
-            await this.renderChain(chnName, representative, outPath, fileName);
-            lastGaussiansAsymId = chnName;
+            // Render all coarse polymer chains
+            const { spheres, gaussians } = coarseHierarchy;
+            for (let i = 0, il = spheres.asym_id.rowCount; i < il; i++) {
+                const chnName = spheres.asym_id.value(i);
+                if (processed.spheres.has(chnName)) continue;
+
+                await this.renderChain(chnName, model, outPath, fileName);
+                processed.spheres.add(chnName);
+            }
+            for (let i = 0, il = gaussians.asym_id.rowCount; i < il; i++) {
+                const chnName = gaussians.asym_id.value(i);
+                if (processed.gaussians.has(chnName)) continue;
+
+                await this.renderChain(chnName, model, outPath, fileName);
+                processed.gaussians.add(chnName);
+            }
         }
 
         // Render models ensemble

@@ -653,15 +653,33 @@ export class ImageRenderer {
             await this.renderAssembly(i, representative, outPath, fileName);
         }
 
+        // Render all atomic polymer chains
         const { entities } = representative;
         const { label_asym_id, label_entity_id } = representative.atomicHierarchy.chains;
-
-        // Render all polymer chains
         for (let i = 0, il = label_asym_id.rowCount; i < il; i++) {
             const eI = entities.getEntityIndex(label_entity_id.value(i));
             if (entities.data.type.value(eI) !== 'polymer') continue;
             const chnName = label_asym_id.value(i);
             await this.renderChain(chnName, representative, outPath, fileName);
+        }
+
+        // Render all coarse polymer chains
+        const { spheres, gaussians } = representative.coarseHierarchy;
+        let lastSpheresAsymId = undefined;
+        for (let i = 0, il = spheres.asym_id.rowCount; i < il; i++) {
+            const chnName = spheres.asym_id.value(i);
+            if (lastSpheresAsymId === chnName) continue;
+
+            await this.renderChain(chnName, representative, outPath, fileName);
+            lastSpheresAsymId = chnName;
+        }
+        let lastGaussiansAsymId = undefined;
+        for (let i = 0, il = gaussians.asym_id.rowCount; i < il; i++) {
+            const chnName = gaussians.asym_id.value(i);
+            if (lastGaussiansAsymId === chnName) continue;
+
+            await this.renderChain(chnName, representative, outPath, fileName);
+            lastGaussiansAsymId = chnName;
         }
 
         // Render models ensemble

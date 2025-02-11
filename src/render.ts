@@ -653,11 +653,7 @@ export class ImageRenderer {
         }
 
         // IHM entries might models that cover different subsets of all available chains -- render the 1st occurrence of each chain
-        const processed = {
-            chains: new Set<string>(),
-            spheres: new Set<string>(),
-            gaussians: new Set<string>(),
-        };
+        const processedChains = new Set<string>();
         for (let i = 0; i < trajectory.frameCount; i++) {
             const model = await Task.resolveInContext(trajectory.getFrameAtIndex(i));
             const { entities, atomicHierarchy, coarseHierarchy } = model;
@@ -668,27 +664,27 @@ export class ImageRenderer {
                 const eI = entities.getEntityIndex(label_entity_id.value(i));
                 if (entities.data.type.value(eI) !== 'polymer') continue;
                 const chnName = label_asym_id.value(i);
-                if (processed.chains.has(chnName)) continue;
+                if (processedChains.has(chnName)) continue;
 
                 await this.renderChain(chnName, model, outPath, fileName);
-                processed.chains.add(chnName);
+                processedChains.add(chnName);
             }
 
             // Render all coarse polymer chains
             const { spheres, gaussians } = coarseHierarchy;
             for (let i = 0, il = spheres.asym_id.rowCount; i < il; i++) {
                 const chnName = spheres.asym_id.value(i);
-                if (processed.spheres.has(chnName)) continue;
+                if (processedChains.has(chnName)) continue;
 
                 await this.renderChain(chnName, model, outPath, fileName);
-                processed.spheres.add(chnName);
+                processedChains.add(chnName);
             }
             for (let i = 0, il = gaussians.asym_id.rowCount; i < il; i++) {
                 const chnName = gaussians.asym_id.value(i);
-                if (processed.gaussians.has(chnName)) continue;
+                if (processedChains.has(chnName)) continue;
 
                 await this.renderChain(chnName, model, outPath, fileName);
-                processed.gaussians.add(chnName);
+                processedChains.add(chnName);
             }
         }
 

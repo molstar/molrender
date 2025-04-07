@@ -1,27 +1,35 @@
 /**
- * Copyright (c) 2019-2022 mol* contributors, licensed under MIT, See LICENSE file for more info.
+ * Copyright (c) 2019-2025 mol* contributors, licensed under MIT, See LICENSE file for more info.
  *
  * @author Alexander Rose <alexander.rose@weirdbyte.de>
  * @author Jesse Liang <jesse.liang@rcsb.org>
+ * @author Sebastian Bittrich <sebastian.bittrich@rcsb.org>
  */
 
 import * as util from 'util';
 import fs = require('fs');
+import * as zlib from 'zlib';
 import { CIF, CifFrame } from 'molstar/lib/mol-io/reader/cif';
 import { trajectoryFromMmCIF } from 'molstar/lib/mol-model-formats/structure/mmcif';
 
 const readFileAsync = util.promisify(fs.readFile);
+const gunzipAsync = util.promisify(zlib.gunzip);
 
 /**
  * Helper method that reads file and returns the data
+ * Supports .gz (gzip) and .bcif formats
  * @param path path to file
  */
 async function readFile(path: string) {
-    if (path.match(/\.bcif$/)) {
-        const input = await readFileAsync(path);
-        return new Uint8Array(input);
+    const isBinary = /\.bcif(\.gz)?$/.test(path);
+    const isGzipped = /\.gz$/.test(path);
+    const input = await readFileAsync(path);
+
+    if (isGzipped) {
+        const unzipped = await gunzipAsync(input);
+        return isBinary ? new Uint8Array(unzipped) : unzipped.toString('utf8');
     } else {
-        return readFileAsync(path, 'utf8');
+        return isBinary ? new Uint8Array(input) : input.toString('utf8');
     }
 }
 

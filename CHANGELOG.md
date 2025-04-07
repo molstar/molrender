@@ -1,6 +1,10 @@
 # Change Log
 All notable changes to this project will be documented in this file, following the suggestions of [Keep a CHANGELOG](http://keepachangelog.com/). This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.9.0] - 2025-04-07
+-------------
+* Support for gzipped source data
+
 ## [v0.8.0] - 2025-02-28
 -------------
 * Support for IHM structures, coarse-grained parts are rendered in spacefill representation (RO-4565)

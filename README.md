@@ -7,6 +7,7 @@
 
 ## Usage
 Molrender creates images of the following types: `model`, `assembly`, `chain`, `chain-list`, `models`, or `all`. Either as `png` or `jpeg`.
+`cif` and `bcif` are supported as input files, content with `.gz` extension will be automatically decompressed while reading.
 
 ### Create all images as PNG
     molrender all /path/to/5cbg.cif /path/to/out/

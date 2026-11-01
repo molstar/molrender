@@ -10,7 +10,7 @@
 import getGLContext = require('gl');
 import fs = require('fs');
 import { PNG } from 'pngjs';
-import * as JPEG from 'jpeg-js';
+import sharp from 'sharp';
 import { createContext, WebGLContext } from 'molstar/lib/mol-gl/webgl/context';
 import { Canvas3D, Canvas3DContext, DefaultCanvas3DParams } from 'molstar/lib/mol-canvas3d/canvas3d';
 import { InputObserver } from 'molstar/lib/mol-util/input/input-observer';
@@ -62,12 +62,6 @@ import { SpacefillRepresentationProvider } from 'molstar/lib/mol-repr/structure/
 async function writePngFile(png: PNG, outPath: string) {
     await new Promise<void>(resolve => {
         png.pack().pipe(fs.createWriteStream(outPath)).on('finish', resolve);
-    });
-}
-
-async function writeJpegFile(jpeg: JPEG.BufferRet, outPath: string) {
-    await new Promise<void>(resolve => {
-        fs.writeFile(outPath, jpeg.data, () => resolve());
     });
 }
 
@@ -164,6 +158,15 @@ export type MolRenderStateType = {
     assemblyId: string;
 });
 
+export type JpegChroma = '4:4:4' | '4:2:0';
+
+export interface JpegOptions {
+    quality: number;
+    chroma: JpegChroma;
+}
+
+export const DefaultJpegOptions: JpegOptions = { quality: 90, chroma: '4:4:4' };
+
 /**
  * ImageRenderer class used to initialize 3dcanvas for rendering
  */
@@ -174,7 +177,7 @@ export class ImageRenderer {
     imagePass: ImagePass;
     assetManager = new AssetManager();
 
-    constructor(private width: number, private height: number, private format: 'png' | 'jpeg', private plddt: 'on' | 'single-chain' | 'off', private save_state_flag: boolean = false, focusFactory?: FocusFactoryI) {
+    constructor(private width: number, private height: number, private format: 'png' | 'jpeg', private plddt: 'on' | 'single-chain' | 'off', private save_state_flag: boolean = false, focusFactory?: FocusFactoryI, private jpegOptions: JpegOptions = DefaultJpegOptions) {
         this.webgl = createContext(getGLContext(this.width, this.height, {
             antialias: true,
             preserveDrawingBuffer: true,
@@ -385,12 +388,10 @@ export class ImageRenderer {
             generatedPng.data = Buffer.from(imageData.data.buffer);
             await writePngFile(generatedPng, `${outPath}.png`);
         } else if (this.format === 'jpeg') {
-            const generatedJpeg = JPEG.encode({
-                data: imageData.data,
-                width: this.width,
-                height: this.height
-            }, 90);
-            await writeJpegFile(generatedJpeg, `${outPath}.jpeg`);
+            await sharp(Buffer.from(imageData.data.buffer), { raw: { width: this.width, height: this.height, channels: 4 } })
+                .removeAlpha()
+                .jpeg({ quality: this.jpegOptions.quality, chromaSubsampling: this.jpegOptions.chroma, progressive: true, mozjpeg: true })
+                .toFile(`${outPath}.jpeg`);
         } else {
             throw new Error(`unknown image type '${this.format}'`);
         }

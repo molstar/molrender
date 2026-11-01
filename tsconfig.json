@@ -8,6 +8,7 @@
         "noUnusedLocals": true,
         "strictNullChecks": true,
         "strictFunctionTypes": true,
+        "esModuleInterop": true,
         // "downlevelIteration": true,
         "lib": [ "es6", "dom", "esnext.asynciterable", "es2016" ],
         "outDir": "build/src",

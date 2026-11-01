@@ -12,7 +12,7 @@ module.exports = [
             argparse: 'require("argparse")',
             gl: 'require("gl")',
             pngjs: 'require("pngjs")',
-            'jpeg-js': 'require("jpeg-js")'
+            sharp: 'require("sharp")'
         },
         plugins: [
             new webpack.DefinePlugin({

@@ -15,6 +15,10 @@ Molrender creates images of the following types: `model`, `assembly`, `chain`, `
 ### Create all images as JPEG
     molrender all /path/to/1nmr.cif /path/to/out/ --format jpeg
 
+JPEG output is progressive and can be tuned with `--jpeg-quality` (1-100, default 90) and `--jpeg-chroma` (`4:4:4` or `4:2:0`, default `4:4:4`):
+
+    molrender model /path/to/af.bcif /path/to/out/ 0 --format jpeg --jpeg-quality 75
+
 ## Building
 
 ### Build:

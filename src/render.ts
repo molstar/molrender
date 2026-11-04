@@ -271,7 +271,7 @@ export class ImageRenderer {
         });
         this.imagePass.setSize(this.width, this.height);
 
-        const colorThemeRegistry = ColorTheme.createRegistry();
+        const colorThemeRegistry: ColorTheme.Registry = ColorTheme.createRegistry();
         colorThemeRegistry.add(PLDDTConfidenceColorThemeProvider);
         this.reprCtx = {
             webgl: this.canvas3d.webgl,

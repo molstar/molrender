@@ -1,6 +1,12 @@
 # Change Log
 All notable changes to this project will be documented in this file, following the suggestions of [Keep a CHANGELOG](http://keepachangelog.com/). This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+-------------
+* Update to Mol* 5.13 and gl 8.1; requires Node >= 22
+* Images are framed slightly looser (about 2-7% smaller) because of Mol* 5 bounding sphere changes
+* Remove unused `util.promisify` dependency
+
 ## [v0.9.0] - 2025-04-07
 -------------
 * Support for gzipped source data

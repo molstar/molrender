@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file, following t
 * Update to Mol* 5.13 and gl 8.1; requires Node >= 22
 * Images are framed slightly looser (about 2-7% smaller) because of Mol* 5 bounding sphere changes
 * Remove unused `util.promisify` dependency
+* Encode JPEG with sharp (mozjpeg, progressive) instead of jpeg-js
+* Add `--jpeg-quality` (default 90) and `--jpeg-chroma` (`4:4:4` or `4:2:0`, default `4:4:4`) options
+* Parse `--width` and `--height` as integers
 
 ## [v0.9.0] - 2025-04-07
 -------------

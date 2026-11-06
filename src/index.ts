@@ -35,11 +35,13 @@ function addBasicArgs(currParser: argparse.ArgumentParser) {
     });
     currParser.add_argument('--width', {
         action: 'store',
+        type: 'int',
         help: 'image width',
         default: 2048
     });
     currParser.add_argument('--height', {
         action: 'store',
+        type: 'int',
         help: 'image height',
         default: 1536
     });
@@ -57,6 +59,18 @@ function addBasicArgs(currParser: argparse.ArgumentParser) {
         action: 'store_true',
         help: 'save the molrender state to regenerate protein view in molstar',
         default: false
+    });
+    currParser.add_argument('--jpeg-quality', {
+        action: 'store',
+        type: 'int',
+        help: 'JPEG quality (1-100)',
+        default: 90
+    });
+    currParser.add_argument('--jpeg-chroma', {
+        action: 'store',
+        choices: ['4:4:4', '4:2:0'],
+        help: 'JPEG chroma subsampling',
+        default: '4:4:4'
     });
 }
 
@@ -121,7 +135,7 @@ export function getFileName(inPath: string) {
 }
 
 async function main() {
-    const renderer = new ImageRenderer(args.width, args.height, args.format, args.plddt, args.save_state, new FocusFirstResidue());
+    const renderer = new ImageRenderer(args.width, args.height, args.format, args.plddt, args.save_state, new FocusFirstResidue(), { quality: args.jpeg_quality, chroma: args.jpeg_chroma });
 
     const fileName = getFileName(args.in);
     const cif = await readCifFile(args.in);
